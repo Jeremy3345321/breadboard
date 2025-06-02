@@ -1,0 +1,44 @@
+<resources>
+    <string name="app_name">Breadboard Simulator</string>
+
+    <!-- Dialog titles -->
+    <string name="pin_configuration">Pin Configuration</string>
+    <string name="pin_connection">Pin Connection</string>
+    <string name="ic_selection">Select IC Type</string>
+    <string name="simulation_results">Simulation Results</string>
+
+    <!-- Button texts -->
+    <string name="add_ic">Add IC</string>
+    <string name="add_input">Add Input</string>
+    <string name="add_output">Add Output</string>
+    <string name="add_vcc">Add Vcc</string>
+    <string name="add_ground">Add Ground</string>
+    <string name="connect_pin">Connect Pin</string>
+    <string name="remove_connection">Remove Connection</string>
+    <string name="change_connection">Change Connection</string>
+    <string name="cancel">Cancel</string>
+    <string name="execute_circuit">Execute Circuit</string>
+    <string name="clear_board">Clear Board</string>
+
+    <!-- IC Types -->
+    <string name="ic_and">AND Gate</string>
+    <string name="ic_or">OR Gate</string>
+    <string name="ic_not">NOT Gate</string>
+    <string name="ic_nand">NAND Gate</string>
+    <string name="ic_nor">NOR Gate</string>
+    <string name="ic_xor">XOR Gate</string>
+
+    <!-- Messages -->
+    <string name="ic_row_error">An IC can only be added on the E Row.</string>
+    <string name="ic_column_error">An IC has 7 pins. Select a column less than 58.</string>
+    <string name="connection_exists_error">Error! Another Connection already Exists!</string>
+    <string name="ic_placement_error">Cannot place IC. Connection found at %1$s-%2$d.</string>
+
+    <!-- Instructions -->
+    <string name="instructions">Instructions:\n• Tap on pins to configure them\n• Add ICs on row E\n• Connect inputs, outputs, VCC, and ground\n• Execute to see results</string>
+
+    <!-- Results -->
+    <string name="circuit_results">Circuit Results:</string>
+    <string name="inputs_count">Inputs: %1$d</string>
+    <string name="outputs_count">Outputs: %1$d</string>
+</resources>
