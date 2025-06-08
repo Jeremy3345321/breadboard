@@ -8,7 +8,7 @@ public class ICGateInfo {
     public String type;
     public Coordinate position;
     Button button;
-    ICGate gateLogic; // Reference to your actual ICGate implementation
+    ICGate gateLogic; 
 
     public ICGateInfo(String type, Coordinate position, Button button, ICGate gateLogic) {
         this.type = type;
