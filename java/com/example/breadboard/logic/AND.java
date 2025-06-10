@@ -6,6 +6,7 @@ import com.example.breadboard.model.Coordinate;
 
 public class AND extends ICGate {
     private MainActivity mainActivity;
+    // Pin positioning
     private int[] inputPins = {1, 2, 4, 5, 9, 10, 12, 13}; // Input pins
     private int[] outputPins = {3, 6, 8, 11}; // Output pins
     private int vccPin = 14;
