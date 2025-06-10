@@ -23,7 +23,7 @@ public class NOR extends ICGate {
         // Request MainActivity to mark the pins and get pin mappings
         if (mainActivity != null) {
             // Tell MainActivity to mark the physical pins
-            mainActivity.markICPins(position, "NAND");
+            mainActivity.markICPins(position, "NOR");
 
             // Register pin functions with MainActivity
             registerPinFunctions();
