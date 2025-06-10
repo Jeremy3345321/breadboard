@@ -26,6 +26,7 @@ import android.widget.ImageButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.FrameLayout;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView[] topLabels, bottomLabels;
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
+    private Map<Coordinate, TextView> inputLabels = new HashMap<>();
 
 
     // Data structures
@@ -54,6 +56,9 @@ public class MainActivity extends AppCompatActivity {
     private static List<Coordinate> gndPins = new ArrayList<>();
     private static List<Pins> wires = new ArrayList<>();
     private static List<ICGateInfo> icGateObjects = new ArrayList<>();
+
+    private static Map<Coordinate, InputInfo> inputNames = new HashMap<>();
+
     private static boolean canDisplay = false;
 
     // Constants
@@ -61,6 +66,16 @@ public class MainActivity extends AppCompatActivity {
     private static final int COLS = 64;
     private static final int SECTIONS = 2;
     private static final char[] ROW_LABELS = {' ', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', ' '};
+
+    private static class InputInfo {
+        public String name;
+        public int value;
+
+        public InputInfo(String name, int value) {
+            this.name = name;
+            this.value = value;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -104,7 +119,7 @@ public class MainActivity extends AppCompatActivity {
             middleScrollView = new HorizontalScrollView(this);
             bottomScrollView = new HorizontalScrollView(this);
 
-            // Add to your main layout container
+
         }
     }
 
@@ -204,7 +219,7 @@ public class MainActivity extends AppCompatActivity {
         gapParams.rowSpec = GridLayout.spec(5); // Row 5 is the gap
         gapParams.columnSpec = GridLayout.spec(0, COLS + 1); // Span all columns
         gapParams.width = GridLayout.LayoutParams.MATCH_PARENT;
-        gapParams.height = getResources().getDimensionPixelSize(R.dimen.ic_height); // Use IC height for gap
+        gapParams.height = getResources().getDimensionPixelSize(R.dimen.middle_height); // Use IC height for gap
         gapView.setLayoutParams(gapParams);
         middleGrid.addView(gapView);
 
@@ -238,7 +253,7 @@ public class MainActivity extends AppCompatActivity {
                     GridLayout.LayoutParams params = new GridLayout.LayoutParams();
                     params.width = getResources().getDimensionPixelSize(R.dimen.pin_size);
                     params.height = getResources().getDimensionPixelSize(R.dimen.pin_size);
-                    params.setMargins(2, 1, 2, 1);
+                    params.setMargins(2, -2, 2, -2);
 
                     // Calculate grid row position accounting for the gap
                     int gridRow;
@@ -266,6 +281,42 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+    }
+
+    int extraPadding = 0;
+    private void resizeSpecialPin(Coordinate coord, int drawableResource) {
+        ImageButton pin = pins[coord.s][coord.r][coord.c];
+
+        // Set the new drawable
+        pin.setImageResource(drawableResource);
+
+        // Get the current layout parameters
+        GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
+
+        int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+        int newSize = originalSize + 36;
+
+        // Update the size
+        params.width = newSize;
+        params.height = newSize;
+
+        // Adjust margins to center the larger pin in its grid cell
+        int extraSize = newSize - originalSize;
+        int marginAdjustment = -extraSize / 2;
+
+        params.setMargins(
+                2 + marginAdjustment, // left
+                1 + marginAdjustment, // top
+                2 + marginAdjustment, // right
+                1 + marginAdjustment  // bottom
+        );
+
+        // Apply the new layout parameters
+        pin.setLayoutParams(params);
+
+        // Ensure the pin is brought to front so it's visible over other elements
+        pin.bringToFront();
+        //extraPadding += 6;
     }
 
     private void synchronizeScrollViews() {
@@ -404,24 +455,155 @@ public class MainActivity extends AppCompatActivity {
 
     private void addInput(Coordinate coord) {
         if (checkValue(coord, 0)) {
-            pins[coord.s][coord.r][coord.c].setImageResource(R.drawable.breadboard_inpt);
-            inputs.add(coord);
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 0);
+            showInputNameDialog(coord);
         } else {
             showToast("Error! Another Connection already Exists!");
         }
     }
 
+    private void showInputNameDialog(Coordinate coord) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Name Input");
+
+        // Create EditText for input
+        final android.widget.EditText input = new android.widget.EditText(this);
+        input.setHint("Enter single letter (A-Z)");
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS);
+        input.setFilters(new android.text.InputFilter[]{new android.text.InputFilter.LengthFilter(1)});
+
+        builder.setView(input);
+
+        builder.setPositiveButton("OK", (dialog, which) -> {
+            String inputName = input.getText().toString().trim().toUpperCase();
+
+            // Validate input
+            if (inputName.isEmpty()) {
+                showToast("Please enter a letter!");
+                showInputNameDialog(coord); // Show dialog again
+                return;
+            }
+
+            if (!inputName.matches("[A-Z]")) {
+                showToast("Only single letters (A-Z) are allowed!");
+                showInputNameDialog(coord); // Show dialog again
+                return;
+            }
+
+            // Check if name is already used
+            if (isInputNameUsed(inputName)) {
+                showToast("Input name '" + inputName + "' is already used!");
+                showInputNameDialog(coord); // Show dialog again
+                return;
+            }
+
+            // Create the input with the given name
+            createNamedInput(coord, inputName);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            // Reset the coordinate since we're canceling
+            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-1, -1);
+            removeValue(coord);
+        });
+
+        builder.show();
+    }
+
+    private boolean isInputNameUsed(String name) {
+        for (Coordinate coord : inputs) {
+            InputInfo info = getInputInfo(coord);
+            if (info != null && name.equals(info.name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void createNamedInput(Coordinate coord, String name) {
+        resizeSpecialPin(coord, R.drawable.breadboard_inpt);
+        inputs.add(coord);
+        pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 0);
+
+        // Store the input name
+        setInputName(coord, name);
+
+        // Create and display the input name label
+        createInputLabel(coord, name);
+
+        showToast("Input '" + name + "' created successfully!");
+    }
+
+    private void createInputLabel(Coordinate coord, String name) {
+        // Create a TextView for the input name
+        TextView inputLabel = new TextView(this);
+        inputLabel.setText(name);
+        inputLabel.setTextColor(Color.WHITE);
+        inputLabel.setTextSize(14);
+        inputLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        inputLabel.setGravity(android.view.Gravity.CENTER);
+        inputLabel.setShadowLayer(2, 1, 1, Color.BLACK); // Add shadow for better visibility
+
+        // Get the input pin button
+        ImageButton pin = pins[coord.s][coord.r][coord.c];
+
+        // Create a FrameLayout to overlay the text on the pin
+        FrameLayout frameLayout = new FrameLayout(this);
+
+        // Get pin's current layout parameters
+        GridLayout.LayoutParams pinParams = (GridLayout.LayoutParams) pin.getLayoutParams();
+
+        // Remove pin from its current parent
+        middleGrid.removeView(pin);
+
+        // Add pin to the FrameLayout
+        FrameLayout.LayoutParams pinFrameParams = new FrameLayout.LayoutParams(
+                pinParams.width, pinParams.height);
+        pin.setLayoutParams(pinFrameParams);
+        frameLayout.addView(pin);
+
+        // Add label to the FrameLayout (it will overlay the pin)
+        FrameLayout.LayoutParams labelParams = new FrameLayout.LayoutParams(
+                pinParams.width, pinParams.height);
+        labelParams.gravity = android.view.Gravity.CENTER;
+        inputLabel.setLayoutParams(labelParams);
+        frameLayout.addView(inputLabel);
+
+        // Set the FrameLayout's layout parameters to match the original pin
+        frameLayout.setLayoutParams(pinParams);
+
+        // Add the FrameLayout (containing pin + label) back to the grid
+        middleGrid.addView(frameLayout);
+
+        // Store the label reference for later removal if needed
+        inputLabels.put(coord, inputLabel);
+
+        // Make sure the pin click listener still works
+        frameLayout.setOnClickListener(v -> onPinClicked(coord));
+    }
+
+    private void setInputName(Coordinate coord, String name) {
+        inputNames.put(coord, new InputInfo(name, 0));
+    }
+
+    private InputInfo getInputInfo(Coordinate coord) {
+        return inputNames.get(coord);
+    }
+
+    private String getInputName(Coordinate coord) {
+        InputInfo info = inputNames.get(coord);
+        return info != null ? info.name : null;
+    }
+
     private void addOutput(Coordinate coord) {
         checkValue(coord, 2);
-        pins[coord.s][coord.r][coord.c].setImageResource(R.drawable.breadboard_otpt);
+        resizeSpecialPin(coord, R.drawable.breadboard_otpt);
         outputs.add(coord);
         pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 2);
     }
 
     private void addVcc(Coordinate coord) {
         if (checkValue(coord, 1)) {
-            pins[coord.s][coord.r][coord.c].setImageResource(R.drawable.breadboard_vcc);
+            resizeSpecialPin(coord, R.drawable.breadboard_vcc);
             vccPins.add(coord);
             pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 1);
         } else {
@@ -431,7 +613,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void addGround(Coordinate coord) {
         if (checkValue(coord, -2)) {
-            pins[coord.s][coord.r][coord.c].setImageResource(R.drawable.breadboard_gnd);
+            resizeSpecialPin(coord, R.drawable.breadboard_gnd);
             gndPins.add(coord);
             pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, -2);
         } else {
@@ -451,16 +633,68 @@ public class MainActivity extends AppCompatActivity {
         vccPins.remove(coord);
         gndPins.remove(coord);
 
-        // Reset pin appearance and attributes
-        pins[coord.s][coord.r][coord.c].setImageResource(R.drawable.breadboard_pin);
+        // Remove input name if it exists
+        inputNames.remove(coord);
+
+        // Remove input label if it exists
+        TextView inputLabel = inputLabels.get(coord);
+        if (inputLabel != null) {
+            // Get the FrameLayout parent
+            FrameLayout frameLayout = (FrameLayout) inputLabel.getParent();
+            if (frameLayout != null) {
+                // Get the original pin from the FrameLayout
+                ImageButton pin = pins[coord.s][coord.r][coord.c];
+
+                // Get the FrameLayout's layout parameters
+                GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
+
+                // Remove FrameLayout from grid
+                middleGrid.removeView(frameLayout);
+
+                // Reset pin appearance and size
+                pin.setImageResource(R.drawable.breadboard_pin);
+                int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+
+                // Create new layout parameters for the pin
+                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+                params.width = originalSize;
+                params.height = originalSize;
+                params.setMargins(2, 1, 2, 1);
+                params.rowSpec = frameParams.rowSpec;
+                params.columnSpec = frameParams.columnSpec;
+
+                pin.setLayoutParams(params);
+
+                // Add pin back to grid
+                middleGrid.addView(pin);
+            }
+
+            // Remove from labels map
+            inputLabels.remove(coord);
+        } else {
+            // For non-input pins, reset normally
+            ImageButton pin = pins[coord.s][coord.r][coord.c];
+            pin.setImageResource(R.drawable.breadboard_pin);
+
+            // Reset pin size to original
+            GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
+            int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+            params.width = originalSize;
+            params.height = originalSize;
+            params.setMargins(2, 1, 2, 1);
+            pin.setLayoutParams(params);
+        }
+
+        // Reset attributes
         pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-1, -1);
         removeValue(coord);
+        extraPadding -= 7;
     }
 
 
 
     public int ICnum = 0;
-    public int contMargin = 0;
+    public int contMargin = 6;
     private void addICGate(Coordinate coord, String icType) {
         Button icButton = new Button(this);
         icButton.setText(icType);
@@ -472,14 +706,10 @@ public class MainActivity extends AppCompatActivity {
         int icWidth = pinSize * 7 - 19; // IC spans 7 columns
         int icHeight = getResources().getDimensionPixelSize(R.dimen.ic_height);
 
-        // Use RelativeLayout.LayoutParams since icContainer is inside a RelativeLayout
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(icWidth, icHeight);
 
         int rowLabelWidth = pinSize;
-        int pinMarginLeft = 2; // Pin margins from setupPins()
-        if (ICnum != 0) {
-            pinMarginLeft = 1;
-        }
+        int pinMarginLeft = 1; // Pin margins from setupPins()
         int pinMarginLeftPx = Math.round(pinMarginLeft * getResources().getDisplayMetrics().density);
 
         // Account for scroll view and grid padding
@@ -517,38 +747,33 @@ public class MainActivity extends AppCompatActivity {
 
         // Mark IC pins as occupied
         markICPins(coord, icType);
-
         int addedPadding = 0;
+        if (extraPadding != 0) {
+            addedPadding = 1;
+        }
         if (ICnum == 0) {
-            contMargin -= 7;
+            contMargin = -7;
             ICnum += 1;
         } else if (ICnum == 1) {
-            contMargin -= 7 + 1;
+            contMargin = -20 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 2) {
-            contMargin -= 7 + 4;
+            contMargin = -34 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 3) {
-            contMargin -= 7 + 8;
+            contMargin = -48 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 4){
-            contMargin -= 7 + 12;
+            contMargin = -63 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 5){
-            addedPadding += 5;
-            contMargin -= 7 + addedPadding;
+            contMargin = -76 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 6){
-            addedPadding += 5;
-            contMargin -= 7 + addedPadding;
+            contMargin = -90 - extraPadding;
             ICnum += 1;
         } else if (ICnum == 7){
-            addedPadding += 5;
-            contMargin -= 7 + addedPadding;
-            ICnum += 1;
-        } else if (ICnum == 8){
-            addedPadding += 5;
-            contMargin -= 7 + addedPadding;
+            contMargin = -103 - extraPadding;
             ICnum += 1;
         }
     }
