@@ -23,6 +23,7 @@ import android.widget.Button;
 import android.widget.GridLayout;
 import android.widget.HorizontalScrollView;
 import android.widget.ImageButton;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -40,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     private HorizontalScrollView bottomScrollView;
     private RelativeLayout icContainer;
     private ImageButton[][][] pins;
+    private HorizontalScrollView inputDisplayScrollView;
+    private LinearLayout inputDisplayContainer;
     private TextView[] topLabels, bottomLabels;
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
@@ -91,6 +94,12 @@ public class MainActivity extends AppCompatActivity {
         middleGrid = findViewById(R.id.middleGrid);
         bottomGrid = findViewById(R.id.bottomGrid);
         icContainer = findViewById(R.id.icContainer);
+
+        // Initialize input display components
+        inputDisplayScrollView = findViewById(R.id.inputDisplayScrollView);
+        inputDisplayContainer = findViewById(R.id.inputDisplayContainer);
+        inputDisplayScrollView.setVerticalScrollBarEnabled(false);
+
 
         // Initialize data structures
         pins = new ImageButton[SECTIONS][ROWS][COLS];
@@ -306,9 +315,9 @@ public class MainActivity extends AppCompatActivity {
 
         params.setMargins(
                 2 + marginAdjustment, // left
-                1 + marginAdjustment, // top
+                -2 + marginAdjustment, // top
                 2 + marginAdjustment, // right
-                1 + marginAdjustment  // bottom
+                -2 + marginAdjustment  // bottom
         );
 
         // Apply the new layout parameters
@@ -530,6 +539,9 @@ public class MainActivity extends AppCompatActivity {
         // Create and display the input name label
         createInputLabel(coord, name);
 
+        // Refresh the input display row
+        refreshInputDisplay();
+
         showToast("Input '" + name + "' created successfully!");
     }
 
@@ -594,6 +606,104 @@ public class MainActivity extends AppCompatActivity {
         return info != null ? info.name : null;
     }
 
+    private void createInputDisplayItem(String inputName, int value) {
+        // Create a container for each input display item
+        LinearLayout inputItem = new LinearLayout(this);
+        inputItem.setOrientation(LinearLayout.VERTICAL);
+        inputItem.setPadding(8, 4, 8, 4);
+        inputItem.setGravity(android.view.Gravity.CENTER);
+
+        // Create the input pin image (similar to breadboard)
+        ImageButton inputDisplay = new ImageButton(this);
+        inputDisplay.setImageResource(R.drawable.breadboard_inpt);
+        inputDisplay.setBackground(null);
+        inputDisplay.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+
+        // Set size similar to breadboard pins but slightly smaller for display
+        int displaySize = getResources().getDimensionPixelSize(R.dimen.pin_size) + 20;
+        LinearLayout.LayoutParams pinParams = new LinearLayout.LayoutParams(displaySize, displaySize);
+        inputDisplay.setLayoutParams(pinParams);
+
+        // Create a FrameLayout to overlay the input name on the pin
+        FrameLayout inputFrame = new FrameLayout(this);
+        inputFrame.addView(inputDisplay);
+
+        // Add input name label on the pin
+        TextView nameLabel = new TextView(this);
+        nameLabel.setText(inputName);
+        nameLabel.setTextColor(Color.WHITE);
+        nameLabel.setTextSize(12);
+        nameLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        nameLabel.setGravity(android.view.Gravity.CENTER);
+        nameLabel.setShadowLayer(2, 1, 1, Color.BLACK);
+
+        FrameLayout.LayoutParams nameLabelParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT);
+        nameLabelParams.gravity = android.view.Gravity.CENTER;
+        nameLabel.setLayoutParams(nameLabelParams);
+        inputFrame.addView(nameLabel);
+
+        // Create value label below the pin
+        TextView valueLabel = new TextView(this);
+        valueLabel.setText(String.valueOf(value));
+        valueLabel.setTextSize(14);
+        valueLabel.setTextColor(value == 1 ? Color.GREEN : Color.RED);
+        valueLabel.setGravity(android.view.Gravity.CENTER);
+        valueLabel.setPadding(0, 4, 0, 0);
+
+        // Add click listener to toggle value
+        inputFrame.setOnClickListener(v -> {
+            int currentValue = Integer.parseInt(valueLabel.getText().toString());
+            int newValue = currentValue == 0 ? 1 : 0;
+            valueLabel.setText(String.valueOf(newValue));
+            valueLabel.setTextColor(newValue == 1 ? Color.GREEN : Color.RED);
+
+            // Update the actual input value in your data structure
+            updateInputValue(inputName, newValue);
+        });
+
+        // Add components to the input item container
+        inputItem.addView(inputFrame);
+        inputItem.addView(valueLabel);
+
+        // Add the input item to the display container
+        inputDisplayContainer.addView(inputItem);
+    }
+
+
+
+    // Modify your createNamedInput method to refresh the display
+
+    private void updateInputValue(String inputName, int newValue) {
+        // Find the coordinate of the input with this name
+        for (Coordinate coord : inputs) {
+            InputInfo info = getInputInfo(coord);
+            if (info != null && inputName.equals(info.name)) {
+                // Update the value in your inputNames map
+                info.value = newValue;
+                // Also update the pinAttributes if needed
+                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, newValue);
+                break;
+            }
+        }
+    }
+
+    private void refreshInputDisplay() {
+        // Clear existing input displays
+        inputDisplayContainer.removeAllViews();
+
+        // Add all current inputs to the display
+        for (Coordinate coord : inputs) {
+            InputInfo info = getInputInfo(coord);
+            if (info != null) {
+                createInputDisplayItem(info.name, info.value);
+            }
+        }
+    }
+
+
+
     private void addOutput(Coordinate coord) {
         checkValue(coord, 2);
         resizeSpecialPin(coord, R.drawable.breadboard_otpt);
@@ -627,6 +737,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void removeConnection(Coordinate coord) {
+        boolean wasInput = inputs.contains(coord);
+
         // Remove from appropriate lists
         inputs.remove(coord);
         outputs.remove(coord);
@@ -636,59 +748,175 @@ public class MainActivity extends AppCompatActivity {
         // Remove input name if it exists
         inputNames.remove(coord);
 
-        // Remove input label if it exists
+        // Handle input label removal (FrameLayout case)
         TextView inputLabel = inputLabels.get(coord);
         if (inputLabel != null) {
-            // Get the FrameLayout parent
-            FrameLayout frameLayout = (FrameLayout) inputLabel.getParent();
-            if (frameLayout != null) {
-                // Get the original pin from the FrameLayout
-                ImageButton pin = pins[coord.s][coord.r][coord.c];
+            try {
+                // Get the FrameLayout parent
+                FrameLayout frameLayout = (FrameLayout) inputLabel.getParent();
+                if (frameLayout != null && frameLayout.getParent() == middleGrid) {
+                    // Get the FrameLayout's layout parameters before removal
+                    GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
 
-                // Get the FrameLayout's layout parameters
-                GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
+                    // Remove FrameLayout from grid
+                    middleGrid.removeView(frameLayout);
 
-                // Remove FrameLayout from grid
-                middleGrid.removeView(frameLayout);
+                    // Create a completely new pin button
+                    ImageButton newPin = new ImageButton(this);
+                    newPin.setImageResource(R.drawable.breadboard_pin);
+                    newPin.setBackground(null);
+                    newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
 
-                // Reset pin appearance and size
-                pin.setImageResource(R.drawable.breadboard_pin);
-                int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+                    // Set up the click listener
+                    final int s = coord.s, r = coord.r, c = coord.c;
+                    newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
 
-                // Create new layout parameters for the pin
-                GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-                params.width = originalSize;
-                params.height = originalSize;
-                params.setMargins(2, 1, 2, 1);
-                params.rowSpec = frameParams.rowSpec;
-                params.columnSpec = frameParams.columnSpec;
+                    // Create fresh layout parameters for the new pin
+                    GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
+                    int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+                    newParams.width = originalSize;
+                    newParams.height = originalSize;
+                    newParams.setMargins(2, -2, 2, -2); // Use original pin margins
+                    newParams.rowSpec = frameParams.rowSpec;
+                    newParams.columnSpec = frameParams.columnSpec;
 
-                pin.setLayoutParams(params);
+                    newPin.setLayoutParams(newParams);
 
-                // Add pin back to grid
-                middleGrid.addView(pin);
+                    // Update the pins array reference
+                    pins[coord.s][coord.r][coord.c] = newPin;
+
+                    // Add new pin to grid
+                    middleGrid.addView(newPin);
+                }
+
+                // Remove from labels map
+                inputLabels.remove(coord);
+
+            } catch (ClassCastException | NullPointerException e) {
+                // Handle case where FrameLayout structure is not as expected
+                // Fall back to normal pin reset
+                resetPinToOriginal(coord);
             }
-
-            // Remove from labels map
-            inputLabels.remove(coord);
         } else {
             // For non-input pins, reset normally
-            ImageButton pin = pins[coord.s][coord.r][coord.c];
-            pin.setImageResource(R.drawable.breadboard_pin);
-
-            // Reset pin size to original
-            GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
-            int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
-            params.width = originalSize;
-            params.height = originalSize;
-            params.setMargins(2, 1, 2, 1);
-            pin.setLayoutParams(params);
+            resetPinToOriginal(coord);
         }
 
         // Reset attributes
         pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-1, -1);
         removeValue(coord);
-        extraPadding -= 7;
+
+        // Adjust padding counter
+        if (extraPadding > 0) {
+            extraPadding -= 7;
+        }
+        if (wasInput) {
+            refreshInputDisplay();
+        }
+    }
+
+    // Helper method to reset pin to original state
+    private void resetPinToOriginal(Coordinate coord) {
+        ImageButton pin = pins[coord.s][coord.r][coord.c];
+        if (pin != null) {
+            // Reset pin image
+            pin.setImageResource(R.drawable.breadboard_pin);
+
+            // Check if pin is currently in a FrameLayout (input case)
+            if (pin.getParent() instanceof FrameLayout) {
+                FrameLayout frameLayout = (FrameLayout) pin.getParent();
+                if (frameLayout.getParent() == middleGrid) {
+                    // Get the FrameLayout's GridLayout parameters
+                    GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
+
+                    // Remove FrameLayout from grid
+                    middleGrid.removeView(frameLayout);
+
+                    // Create new pin with proper GridLayout parameters
+                    ImageButton newPin = new ImageButton(this);
+                    newPin.setImageResource(R.drawable.breadboard_pin);
+                    newPin.setBackground(null);
+                    newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+
+                    // Set up the click listener
+                    final int s = coord.s, r = coord.r, c = coord.c;
+                    newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
+
+                    // Create fresh GridLayout parameters
+                    GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
+                    int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+                    newParams.width = originalSize;
+                    newParams.height = originalSize;
+                    newParams.setMargins(2, -2, 2, -2);
+                    newParams.rowSpec = frameParams.rowSpec;
+                    newParams.columnSpec = frameParams.columnSpec;
+
+                    newPin.setLayoutParams(newParams);
+
+                    // Update pins array reference
+                    pins[coord.s][coord.r][coord.c] = newPin;
+
+                    // Add to grid
+                    middleGrid.addView(newPin);
+                }
+            } else {
+                // Pin is directly in GridLayout, safe to cast
+                try {
+                    GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
+                    if (params != null) {
+                        int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+                        params.width = originalSize;
+                        params.height = originalSize;
+                        params.setMargins(2, -2, 2, -2);
+                        pin.setLayoutParams(params);
+                    }
+                } catch (ClassCastException e) {
+                    // If cast fails, recreate the pin properly
+                    recreatePinInGrid(coord);
+                }
+            }
+        }
+    }
+
+    // Helper method to recreate a pin in the grid with proper parameters
+    private void recreatePinInGrid(Coordinate coord) {
+        ImageButton oldPin = pins[coord.s][coord.r][coord.c];
+        if (oldPin != null && oldPin.getParent() != null) {
+            // Remove old pin from its parent
+            ((android.view.ViewGroup) oldPin.getParent()).removeView(oldPin);
+        }
+
+        // Create new pin
+        ImageButton newPin = new ImageButton(this);
+        newPin.setImageResource(R.drawable.breadboard_pin);
+        newPin.setBackground(null);
+        newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+
+        // Set up click listener
+        final int s = coord.s, r = coord.r, c = coord.c;
+        newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
+
+        // Create proper GridLayout parameters
+        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
+        int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
+        params.width = originalSize;
+        params.height = originalSize;
+        params.setMargins(2, -2, 2, -2);
+
+        // Calculate grid position
+        int gridRow = coord.s == 0 ? coord.r : coord.r + 6;
+        int gridCol = coord.c + 1;
+
+        params.rowSpec = GridLayout.spec(gridRow);
+        params.columnSpec = GridLayout.spec(gridCol);
+
+        newPin.setLayoutParams(params);
+
+        // Update pins array reference
+        pins[coord.s][coord.r][coord.c] = newPin;
+
+        // Add to grid
+        middleGrid.addView(newPin);
     }
 
 
