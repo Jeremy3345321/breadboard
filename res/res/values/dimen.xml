@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pin dimensions -->
+    <dimen name="pin_size">30dp</dimen>
+    <dimen name="pin_margin">2dp</dimen>
+
+    <!-- IC dimensions -->
+    <dimen name="ic_width">120dp</dimen>
+    <dimen name="ic_height">80dp</dimen>
+s
+    <!-- Grid spacing -->
+    <dimen name="grid_spacing">4dp</dimen>
+    <dimen name="middle_height">46dp</dimen>
+
+    <!-- Text sizes -->
+    <dimen name="label_text_size">10sp</dimen>
+    <dimen name="row_label_text_size">12sp</dimen>
+    <dimen name="title_text_size">20sp</dimen>
+
+    <!-- Padding and margins -->
+    <dimen name="standard_padding">16dp</dimen>
+    <dimen name="small_padding">8dp</dimen>
+    <dimen name="tiny_padding">4dp</dimen>
+</resources>
