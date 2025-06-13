@@ -133,8 +133,14 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             return;
         }
 
+        // Debug: Print IC pins before execution
+        icPinManager.debugPrintICPins();
+
         // Execute the circuit through ICSetup
         icSetup.executeCircuit();
+
+        // Debug: Print IC pins after execution
+        icPinManager.debugPrintICPins();
 
         // Update output displays after execution
         updateOutputDisplay();

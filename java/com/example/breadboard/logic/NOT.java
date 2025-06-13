@@ -13,8 +13,8 @@ public class NOT extends ICGate {
     ICPinManager icPinManager;
     MainActivity mainActivity;
 
-    private int[] inputPins = {1, 2, 4, 5, 9, 10, 12, 13}; // Input pins
-    private int[] outputPins = {3, 6, 8, 11}; // Output pins
+    private int[] inputPins = {1, 3, 5, 9, 11, 13}; // Input pins
+    private int[] outputPins = {2, 4, 6, 8, 10, 12}; // Output pins
     private int vccPin = 14;
     private int gndPin = 7;
 
@@ -108,11 +108,11 @@ public class NOT extends ICGate {
     private int[] getInputPinsForGate(int gateNumber) {
         switch (gateNumber) {
             case 0: return new int[]{1};   // Gate 1: pins 1 -> output 2
-            case 1: return new int[]{2};   // Gate 2: pins 3 -> output 4
-            case 2: return new int[]{3};   // Gate 3: pins 5 -> output 6
-            case 3: return new int[]{4};   // Gate 4: pins 8 -> output 9
-            case 4: return new int[]{5};   // Gate 5: pins 10 -> output 11
-            case 5: return new int[]{6};   // Gate 6: pins 12 -> output 13
+            case 1: return new int[]{3};   // Gate 2: pins 3 -> output 4
+            case 2: return new int[]{5};   // Gate 3: pins 5 -> output 6
+            case 3: return new int[]{9};   // Gate 4: pins 9 -> output 8
+            case 4: return new int[]{11};   // Gate 5: pins 11 -> output 10
+            case 5: return new int[]{13};   // Gate 6: pins 13 -> output 12
             default: return new int[]{0, 0};
         }
     }

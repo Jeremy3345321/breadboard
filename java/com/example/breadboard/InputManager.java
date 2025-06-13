@@ -180,20 +180,12 @@ public class InputManager {
     }
 
     public void toggleInputValue(Coordinate coord) {
-        InputInfo info = getInputInfo(coord);
+        InputInfo info = inputNames.get(coord);
         if (info != null) {
-            // Toggle between 0 and 1
-            info.value = (info.value == 0) ? 1 : 0;
-
-            // Update the pinAttributes value as well
-            for (int i = 0; i < 5; i++) { // ROWS = 5
-                if (coord.r != i && pinAttributes[coord.s][i][coord.c].link != -1) {
-                    pinAttributes[coord.s][i][coord.c].value = info.value;
-                    break;
-                }
-            }
-
-            showToast("Input '" + info.name + "' set to " + (info.value == 1 ? "HIGH" : "LOW"));
+            info.value = info.value == 0 ? 1 : 0;
+            pinAttributes[coord.s][coord.r][coord.c].value = info.value;
+            System.out.println("Toggled input at " + coord + " to value=" + info.value);
+            updateInputDisplay();
         }
     }
 

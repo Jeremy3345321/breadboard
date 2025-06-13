@@ -124,46 +124,59 @@ public class OutputManager {
      * FIXED: Improved logic to properly read IC output values
      */
     private int getOutputValue(Coordinate coord) {
-        System.out.println("Getting output value for " + coord);
+        System.out.println("Getting output value for " + coord.toString());
+
         for (int r = 0; r < 5; r++) {
-            if (r == coord.r) continue;
+            if (r == coord.r) continue; // Skip the output pin itself
+
             Coordinate checkCoord = new Coordinate(coord.s, r, coord.c);
-            System.out.println("Checking " + checkCoord);
-            Attribute attr = pinAttributes[coord.s][r][coord.c];
+            System.out.println("Checking " + checkCoord.toString());
+
+            // FIXED: Check IC pins first and handle them properly
             if (icPinManager.isICPin(checkCoord)) {
                 ICPinManager.ICPinInfo pinInfo = icPinManager.getICPinInfo(checkCoord);
                 if (pinInfo != null && "OUTPUT".equals(pinInfo.function)) {
-                    int icValue = attr.value;
+                    // FIXED: Use ICPinManager's getPinValue method which handles IC outputs correctly
+                    int icValue = icPinManager.getPinValue(checkCoord);
                     System.out.println("Found IC output pin at " + checkCoord + " with value " + icValue);
-                    if (icValue != -1 && icValue != -3) {
-                        return icValue;
-                    }
-                    int fallbackValue = icPinManager.getPinValue(checkCoord);
-                    System.out.println("Fallback value from ICPinManager: " + fallbackValue);
-                    return fallbackValue;
+                    return icValue;
                 }
+                // For IC input pins, continue checking other pins in column
                 continue;
             }
+
+            // Check regular pins
+            Attribute attr = pinAttributes[coord.s][r][coord.c];
+
+            // Check for VCC (value = 1)
             if (attr.value == 1) {
-                System.out.println("Found VCC at " + checkCoord);
+                System.out.println("Found VCC at " + checkCoord.toString());
                 return 1;
             }
+
+            // Check for GND (value = -2)
             if (attr.value == -2) {
-                System.out.println("Found GND at " + checkCoord);
+                System.out.println("Found GND at " + checkCoord.toString());
                 return 0;
             }
-            if (attr.link != -1 && attr.value != -1 && attr.value != -3) {
-                System.out.println("Found connected pin at " + checkCoord + " with value " + attr.value);
-                return attr.value;
+
+            // Check for input pins (value = 0 or 1, but not -1 or -3)
+            if (attr.value == 0) {
+                System.out.println("Found input pin at " + checkCoord.toString() + " with value 0");
+                return 0;
             }
-            if (attr.value == 0 || attr.value == 1) {
-                System.out.println("Found input pin at " + checkCoord + " with value " + attr.value);
+
+            // Check for other connected pins
+            if (attr.link != -1 && attr.value != -1 && attr.value != -3) {
+                System.out.println("Found connected pin at " + checkCoord.toString() + " with value " + attr.value);
                 return attr.value;
             }
         }
-        System.out.println("No connection found for " + coord + ", defaulting to 0");
+
+        System.out.println("getOutputValue: No connection found for " + coord.toString() + ", defaulting to 0");
         return 0;
     }
+
 
     /**
      * Force set an output value and update visual

@@ -19,6 +19,7 @@ import com.example.breadboard.model.Coordinate;
 import com.example.breadboard.ICPinManager;
 import com.example.breadboard.ICPinManager.ICPinInfo;
 
+import java.util.Arrays;
 import java.util.List;
 
 public class ICSetup {
@@ -156,18 +157,18 @@ public class ICSetup {
 
     public void markICPins(Coordinate coord, String icType) {
         // Mark pins for a 14-pin DIP IC
-        // Top row (F0-F6): pins 1-7
+        // Bottom row (section 1, row 0): pins 1-7
         System.out.println("Mark IC Pins complete");
         for (int i = 0; i < 7; i++) {
             if (coord.c + i < COLS) {
-                Coordinate topPin = new Coordinate(1, 0, coord.c + i); // Section 1, Row F
+                Coordinate bottomPin = new Coordinate(1, 0, coord.c + i); // Section 1, Row 0 (F)
                 pinAttributes[1][0][coord.c + i] = new Attribute(-3, -3); // Special IC marker
             }
         }
-        // Bottom row (E6-E0): pins 8-14 (reversed order)
+        // Top row (section 0, row 4): pins 8-14 (reversed order)
         for (int i = 0; i < 7; i++) {
             if (coord.c + (6 - i) < COLS) {
-                Coordinate bottomPin = new Coordinate(0, 4, coord.c + (6 - i)); // Section 0, Row E
+                Coordinate topPin = new Coordinate(0, 4, coord.c + (6 - i)); // Section 0, Row 4 (E)
                 pinAttributes[0][4][coord.c + (6 - i)] = new Attribute(-3, -3); // Special IC marker
             }
         }
@@ -306,7 +307,7 @@ public class ICSetup {
                 inputs[i] = getGateInputsForSpecificGate(gate, i);
             }
         }
-
+        System.out.println("getGateInputs" + numGates + " " + Arrays.deepToString(inputs));
         return inputs;
     }
 
@@ -319,11 +320,13 @@ public class ICSetup {
             Coordinate pinCoord = getPhysicalPinCoordinate(inputPins[i], gate.position);
             if (pinCoord != null) {
                 inputs[i] = mainActivity.getICPinManager().getPinValue(pinCoord);
+                System.out.println("Gate " + gateNumber + ", Pin " + inputPins[i] + " -> Coord: " + pinCoord + " = " + inputs[i]);
             } else {
                 inputs[i] = 0; // Default to 0 if pin coordinate is invalid
+                System.out.println("Invalid pin coordinate for logical pin: " + inputPins[i]);
             }
         }
-
+        System.out.println("getGateInputsForSpecificGate Gate#" + gateNumber + " inputPins: " + java.util.Arrays.toString(inputPins) + " inputs: " + java.util.Arrays.toString(inputs));
         return inputs;
     }
 
@@ -334,8 +337,8 @@ public class ICSetup {
                 switch (gateNumber) {
                     case 0: return new int[]{1, 2};   // Gate 1: pins 1,2 -> output 3
                     case 1: return new int[]{4, 5};   // Gate 2: pins 4,5 -> output 6
-                    case 2: return new int[]{9, 10};  // Gate 3: pins 9,10 -> output 8
-                    case 3: return new int[]{12, 13}; // Gate 4: pins 12,13 -> output 11
+                    case 2: return new int[]{8, 9};  // Gate 3: pins 9,10 -> output 8
+                    case 3: return new int[]{11, 12}; // Gate 4: pins 12,13 -> output 11
                     default: return new int[]{0, 0};
                 }
             case "OR":
@@ -344,8 +347,8 @@ public class ICSetup {
                 switch (gateNumber) {
                     case 0: return new int[]{1, 2};   // Gate 1: pins 1,2 -> output 3
                     case 1: return new int[]{4, 5};   // Gate 2: pins 4,5 -> output 6
-                    case 2: return new int[]{9, 10};  // Gate 3: pins 9,10 -> output 8
-                    case 3: return new int[]{12, 13}; // Gate 4: pins 12,13 -> output 11
+                    case 2: return new int[]{8, 9};  // Gate 3: pins 8,9 -> output 10
+                    case 3: return new int[]{11, 12}; // Gate 4: pins 11,12 -> output 13
                     default: return new int[]{0, 0};
                 }
             case "NOT":
@@ -353,9 +356,9 @@ public class ICSetup {
                     case 0: return new int[]{1};   // Gate 1: pin 1 -> output 2
                     case 1: return new int[]{3};   // Gate 2: pin 3 -> output 4
                     case 2: return new int[]{5};   // Gate 3: pin 5 -> output 6
-                    case 3: return new int[]{9};   // Gate 4: pin 9 -> output 8
-                    case 4: return new int[]{11};  // Gate 5: pin 11 -> output 10
-                    case 5: return new int[]{13};  // Gate 6: pin 13 -> output 12
+                    case 3: return new int[]{8};   // Gate 4: pin 8 -> output 9
+                    case 4: return new int[]{10};  // Gate 5: pin 10 -> output 11
+                    case 5: return new int[]{12};  // Gate 6: pin 12 -> output 13
                     default: return new int[]{0};
                 }
             default:
@@ -375,6 +378,8 @@ public class ICSetup {
 
                     // Also update the pin attributes directly for consistency
                     setColumnValue(outputCoord, outputs[i]);
+                    System.out.println("setGateOutputs, outputCoord: " + outputCoord);
+                    System.out.println("setGateOutputs, int[] outputs: " + Arrays.toString(outputs));
                 }
             }
         }
@@ -382,7 +387,7 @@ public class ICSetup {
 
     private void setColumnValue(Coordinate pinCoord, int value) {
         // Set the value for all connected pins in the same column
-        System.out.println("setColumnValue: " + value);
+        System.out.println("setColumnValue, value: " + value + " pinCoord: " + pinCoord.toString());
         for (int r = 0; r < ROWS; r++) {
             if (pinCoord.c < COLS) {
                 Attribute attr = pinAttributes[pinCoord.s][r][pinCoord.c];
@@ -415,12 +420,13 @@ public class ICSetup {
     private Coordinate getPhysicalPinCoordinate(int logicalPin, Coordinate icPosition) {
         // Convert logical pin number (1-14) to physical breadboard coordinate
         if (logicalPin >= 1 && logicalPin <= 7) {
-            // Pins 1-7 are on top row (section 1, row 0)
+            // Pins 1-7 are on bottom row (section 1, row 0)
             return new Coordinate(1, 0, icPosition.c + (logicalPin - 1));
         } else if (logicalPin >= 8 && logicalPin <= 14) {
-            // Pins 8-14 are on bottom row (section 0, row 4) in reverse order
+            // Pins 8-14 are on top row (section 0, row 4) in reverse order
             return new Coordinate(0, 4, icPosition.c + (14 - logicalPin));
         }
+        System.out.println("Invalid logical pin: " + logicalPin);
         return null;
     }
 
@@ -490,7 +496,7 @@ public class ICSetup {
         String[] connections = new String[14];
         Coordinate icPos = icGate.position;
 
-        // Check pins 1-7 (top row F, section 1, row 0)
+        // Check pins 1-7 (bottom row, section 1, row 0)
         for (int i = 0; i < 7; i++) {
             int col = icPos.c + i;
             if (col < COLS) {
@@ -500,7 +506,7 @@ public class ICSetup {
             }
         }
 
-        // Check pins 8-14 (bottom row E, section 0, row 4) - reverse order
+        // Check pins 8-14 (top row, section 0, row 4) - reverse order
         for (int i = 0; i < 7; i++) {
             int col = icPos.c + (6 - i);
             if (col < COLS) {
@@ -510,9 +516,13 @@ public class ICSetup {
             }
         }
 
+        System.out.println("getICPinConnections: " + java.util.Arrays.toString(connections));
         return connections;
     }
 
+    private String getConnectionString (String[] connections) {
+        return connections[0];
+    }
     private String getPinConnectionType(int section, int row, int col) {
         // Check the entire column for connections (breadboard columns are connected vertically)
         for (int r = 0; r < ROWS; r++) {

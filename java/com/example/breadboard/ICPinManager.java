@@ -59,8 +59,16 @@ public class ICPinManager {
         ICPinInfo pinInfo = new ICPinInfo(function, icGate, logicalPin);
         icPinRegistry.put(pinCoord, pinInfo);
 
-        // Mark the pin as an IC pin in the attributes
-        pinAttributes[pinCoord.s][pinCoord.r][pinCoord.c] = new Attribute(-3, -3);
+        // FIXED: Initialize IC pin with proper attribute
+        // For OUTPUT pins, we'll update the value later during execution
+        // For INPUT pins, we set to -3 as marker
+        if ("OUTPUT".equals(function)) {
+            pinAttributes[pinCoord.s][pinCoord.r][pinCoord.c] = new Attribute(-3, 0); // Start with 0, will be updated
+        } else {
+            pinAttributes[pinCoord.s][pinCoord.r][pinCoord.c] = new Attribute(-3, -3);
+        }
+        
+        System.out.println("Registered IC pin at " + pinCoord + " as " + function + " with logical pin " + logicalPin);
     }
 
     private int getLogicalPinNumber(Coordinate pinCoord, Coordinate icPosition) {
@@ -78,13 +86,16 @@ public class ICPinManager {
         // Check if this is a registered IC pin
         ICPinInfo pinInfo = icPinRegistry.get(pinCoord);
         if (pinInfo != null) {
-            // FIXED: For IC OUTPUT pins, return their stored value directly
             if ("OUTPUT".equals(pinInfo.function)) {
+                // FIXED: For IC OUTPUT pins, return their stored value directly
                 Attribute attr = pinAttributes[pinCoord.s][pinCoord.r][pinCoord.c];
-                if (attr.value != -1 && attr.value != -3) {
+                System.out.println("IC OUTPUT pin " + pinCoord + " has attribute value: " + attr.value);
+                
+                // Return the actual computed value, not -3
+                if (attr.value != -3 && attr.value != -1) {
                     return attr.value;
                 }
-                // If no value stored, default to 0
+                // If still -3, it means the value hasn't been set yet, default to 0
                 return 0;
             }
             // For IC INPUT pins, check the column for connections
@@ -114,7 +125,7 @@ public class ICPinManager {
 
             // Check for GND connections
             if (gndPins.contains(checkCoord)) {
-                return 0; // FIXED: Return 0 instead of -2 for logic purposes
+                return 0; // Return 0 for logic purposes
             }
 
             // Check for input connections
@@ -132,18 +143,38 @@ public class ICPinManager {
     }
 
     /**
-     * FIXED: Improved IC pin value setting
+     * FIXED: Improved IC pin value setting with better coordinate matching
      */
     public void setICPinValue(Coordinate pinCoord, int value) {
-        System.out.println("Coordinate: " + pinCoord + ", Value: " + value);
-        ICPinInfo pinInfo = icPinRegistry.get(pinCoord);
+        System.out.println("setICPinValue: Coordinate: " + pinCoord + ", Value: " + value);
+        
+        // FIXED: Check if the coordinate exists in the registry using proper comparison
+        ICPinInfo pinInfo = null;
+        for (Map.Entry<Coordinate, ICPinInfo> entry : icPinRegistry.entrySet()) {
+            Coordinate regCoord = entry.getKey();
+            if (regCoord.s == pinCoord.s && regCoord.r == pinCoord.r && regCoord.c == pinCoord.c) {
+                pinInfo = entry.getValue();
+                break;
+            }
+        }
+        
         if (pinInfo != null && "OUTPUT".equals(pinInfo.function)) {
             // FIXED: Set the IC pin's own attribute value properly
             Attribute icAttr = pinAttributes[pinCoord.s][pinCoord.r][pinCoord.c];
             icAttr.value = value;
+            System.out.println("setICPinValue: Set IC output pin " + pinCoord + " to value " + value);
 
             // FIXED: Also propagate to connected pins in the same column
             propagateToColumn(pinCoord, value);
+        } else {
+            System.out.println("setICPinValue: Pin " + pinCoord + " is not a registered IC OUTPUT pin");
+            // DEBUG: Print all registered pins to help diagnose
+            System.out.println("DEBUG: All registered IC pins:");
+            for (Map.Entry<Coordinate, ICPinInfo> entry : icPinRegistry.entrySet()) {
+                Coordinate coord = entry.getKey();
+                ICPinInfo info = entry.getValue();
+                System.out.println("  " + coord + " -> " + info.function);
+            }
         }
     }
 
@@ -151,6 +182,8 @@ public class ICPinManager {
      * FIXED: New method to properly propagate IC output values to column
      */
     private void propagateToColumn(Coordinate icPinCoord, int value) {
+        System.out.println("propagateToColumn: IC pin " + icPinCoord + " propagating value " + value);
+        
         for (int r = 0; r < ROWS; r++) {
             if (r == icPinCoord.r) continue; // Skip the IC pin itself
             
@@ -158,6 +191,7 @@ public class ICPinManager {
             
             // Skip other IC pins
             if (icPinRegistry.containsKey(checkCoord)) {
+                System.out.println("propagateToColumn: Skipping IC pin at " + checkCoord);
                 continue;
             }
             
@@ -166,6 +200,7 @@ public class ICPinManager {
             // Set value for connected pins (link != -1) or output pins (value == 2)
             if (attr.link != -1 || attr.value == 2) {
                 attr.value = value;
+                System.out.println("propagateToColumn: Set " + checkCoord + " to value " + value + " (link=" + attr.link + ")");
             }
         }
     }
@@ -175,10 +210,31 @@ public class ICPinManager {
     }
 
     public boolean isICPin(Coordinate pinCoord) {
-        return icPinRegistry.containsKey(pinCoord);
+        // FIXED: Use proper coordinate comparison
+        for (Coordinate regCoord : icPinRegistry.keySet()) {
+            if (regCoord.s == pinCoord.s && regCoord.r == pinCoord.r && regCoord.c == pinCoord.c) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void unregisterICPins(ICGate icGate) {
         icPinRegistry.entrySet().removeIf(entry -> entry.getValue().icGate == icGate);
+    }
+    
+    /**
+     * FIXED: Add debug method to check IC pin registry
+     */
+    public void debugPrintICPins() {
+        System.out.println("=== IC Pin Registry Debug ===");
+        for (Map.Entry<Coordinate, ICPinInfo> entry : icPinRegistry.entrySet()) {
+            Coordinate coord = entry.getKey();
+            ICPinInfo info = entry.getValue();
+            Attribute attr = pinAttributes[coord.s][coord.r][coord.c];
+            System.out.println("IC Pin: " + coord + " -> " + info.function + 
+                             " (logical pin " + info.logicalPin + "), attr.value=" + attr.value);
+        }
+        System.out.println("=== End IC Pin Registry Debug ===");
     }
 }

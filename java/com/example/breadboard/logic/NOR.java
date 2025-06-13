@@ -13,8 +13,8 @@ public class NOR extends ICGate {
     ICPinManager icPinManager;
     MainActivity mainActivity;
 
-    private int[] inputPins = {1, 2, 4, 5, 8, 9, 11, 12}; // Input pins
-    private int[] outputPins = {3, 6, 10, 13}; // Output pins
+    private int[] inputPins = {1, 2, 4, 5, 9, 10, 12, 13}; // Input pins
+    private int[] outputPins = {3, 6, 8, 11}; // Output pins
     private int vccPin = 14;
     private int gndPin = 7;
 
@@ -109,8 +109,8 @@ public class NOR extends ICGate {
         switch (gateNumber) {
             case 0: return new int[]{1, 2};   // Gate 1: pins 1,2 -> output 3
             case 1: return new int[]{4, 5};   // Gate 2: pins 4,5 -> output 6
-            case 2: return new int[]{9, 10};  // Gate 3: pins 9,10 -> output 8
-            case 3: return new int[]{12, 13}; // Gate 4: pins 12,13 -> output 11
+            case 2: return new int[]{9, 10};  // Gate 3: pins 9, 10 -> output 8
+            case 3: return new int[]{12, 13}; // Gate 4: pins 12, 13 -> output 11
             default: return new int[]{0, 0};
         }
     }
