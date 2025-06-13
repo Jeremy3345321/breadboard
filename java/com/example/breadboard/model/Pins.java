@@ -1,19 +1,14 @@
 package com.example.breadboard.model;
 
 public class Pins {
-    Coordinate src;
-    Attribute ob;
-    Pins next;
-
+    public Coordinate src;
+    public Coordinate dest;
     Pins(Coordinate src) {
         this.src = src;
     }
-
-    public void add(Pins ob) {
-        Pins tmp = this;
-        while(tmp.next != null) {
-            tmp = tmp.next;
-        }
-        tmp.next = ob;
+    public Pins(Coordinate src, Coordinate dest) {
+        this.src = src;
+        this.dest = dest;
     }
 }
+

@@ -2,6 +2,8 @@ package com.example.breadboard.logic;
 
 import android.widget.Button;
 
+import com.example.breadboard.ICPinManager;
+import com.example.breadboard.ICPinManager.ICPinInfo;
 import com.example.breadboard.MainActivity;
 import com.example.breadboard.model.Coordinate;
 

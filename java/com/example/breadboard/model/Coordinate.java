@@ -1,11 +1,10 @@
 package com.example.breadboard.model;
 
-import com.example.breadboard.MainActivity;
 
 public class Coordinate {
-    public int s;
-    public int r;
-    public int c;
+    public int s; // section
+    public int r; // row
+    public int c; // column
     public Coordinate(int s, int r, int c) {
         this.s = s;
         this.r = r;

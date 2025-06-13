@@ -1,22 +1,28 @@
 package com.example.breadboard.logic;
 
 import android.widget.Button;
+
+import com.example.breadboard.ICPinManager;
+import com.example.breadboard.ICSetup;
 import com.example.breadboard.MainActivity;
 import com.example.breadboard.model.Coordinate;
 
 public class OR extends ICGate {
-
-    private MainActivity mainActivity;
     // Pin positioning
-    private int[] inputPins = {1, 2, 4, 5, 9, 10, 12, 13}; // Input pins
-    private int[] outputPins = {3, 6, 8, 11}; // Output pins
+    ICSetup icSetup;
+    ICPinManager icPinManager;
+    MainActivity mainActivity;
+
+    private int[] inputPins = {1, 2, 4, 5, 8, 9, 11, 12}; // Input pins
+    private int[] outputPins = {3, 6, 10, 13}; // Output pins
     private int vccPin = 14;
     private int gndPin = 7;
 
     public OR(Coordinate position, Button button, MainActivity mainActivity) {
         super("OR", position, button, mainActivity);
         this.mainActivity = mainActivity;
-
+        // Initialize ICPinManager from MainActivity
+        this.icPinManager = mainActivity.getICPinManager();
     }
 
     @Override
@@ -24,9 +30,6 @@ public class OR extends ICGate {
         // Initialize OR gate pin connections
         // Request MainActivity to mark the pins and get pin mappings
         if (mainActivity != null) {
-            // Tell MainActivity to mark the physical pins
-            mainActivity.markICPins(position, "OR");
-
             // Register pin functions with MainActivity
             registerPinFunctions();
         }
@@ -37,22 +40,22 @@ public class OR extends ICGate {
         for (int pin : inputPins) {
             Coordinate pinCoord = getPhysicalPinCoordinate(pin);
             if (pinCoord != null) {
-                mainActivity.registerICPin(pinCoord, "INPUT", this);
+                icPinManager.registerICPin(pinCoord, "INPUT", this);
             }
         }
 
         for (int pin : outputPins) {
             Coordinate pinCoord = getPhysicalPinCoordinate(pin);
             if (pinCoord != null) {
-                mainActivity.registerICPin(pinCoord, "OUTPUT", this);
+                icPinManager.registerICPin(pinCoord, "OUTPUT", this);
             }
         }
 
         // Register power pins
         Coordinate vccCoord = getPhysicalPinCoordinate(vccPin);
         Coordinate gndCoord = getPhysicalPinCoordinate(gndPin);
-        if (vccCoord != null) mainActivity.registerICPin(vccCoord, "VCC", this);
-        if (gndCoord != null) mainActivity.registerICPin(gndCoord, "GND", this);
+        if (vccCoord != null) icPinManager.registerICPin(vccCoord, "VCC", this);
+        if (gndCoord != null) icPinManager.registerICPin(gndCoord, "GND", this);
     }
 
     private Coordinate getPhysicalPinCoordinate(int logicalPin) {
@@ -70,11 +73,12 @@ public class OR extends ICGate {
     @Override
     public int execute(int[] inputs) {
         if (inputs.length >= 2) {
-            return inputs[0] | inputs[1]; // OR operation
+            return inputs[0] | inputs[1]; // AND operation
         }
         return 0;
     }
 
+    // Execute all 4 OR gates in the IC
     public int[] executeAllGates(int[][] allInputs) {
         int[] outputs = new int[4];
         for (int i = 0; i < 4 && i < allInputs.length; i++) {
@@ -94,7 +98,7 @@ public class OR extends ICGate {
         for (int i = 0; i < gatePins.length && i < 2; i++) {
             Coordinate pinCoord = getPhysicalPinCoordinate(gatePins[i]);
             if (pinCoord != null && mainActivity != null) {
-                inputs[i] = mainActivity.getPinValue(pinCoord);
+                inputs[i] = icPinManager.getPinValue(pinCoord);
             }
         }
 

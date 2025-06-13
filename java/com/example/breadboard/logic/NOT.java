@@ -2,19 +2,27 @@ package com.example.breadboard.logic;
 
 import android.widget.Button;
 
+import com.example.breadboard.ICPinManager;
+import com.example.breadboard.ICSetup;
 import com.example.breadboard.MainActivity;
 import com.example.breadboard.model.Coordinate;
 
 public class NOT extends ICGate {
-
-    private MainActivity mainActivity;
     // Pin positioning
-    private int[] inputPins = {1, 3, 5, 8, 10, 12}; // Input pins
-    private int[] outputPins = {2, 4, 6, 9, 11, 13}; // Output pins
+    ICSetup icSetup;
+    ICPinManager icPinManager;
+    MainActivity mainActivity;
+
+    private int[] inputPins = {1, 2, 4, 5, 9, 10, 12, 13}; // Input pins
+    private int[] outputPins = {3, 6, 8, 11}; // Output pins
     private int vccPin = 14;
     private int gndPin = 7;
+
     public NOT(Coordinate position, Button button, MainActivity mainActivity) {
         super("NOT", position, button, mainActivity);
+        this.mainActivity = mainActivity;
+        // Initialize ICPinManager from MainActivity
+        this.icPinManager = mainActivity.getICPinManager();
     }
 
     @Override
@@ -22,9 +30,6 @@ public class NOT extends ICGate {
         // Initialize NOT gate pin connections
         // Request MainActivity to mark the pins and get pin mappings
         if (mainActivity != null) {
-            // Tell MainActivity to mark the physical pins
-            mainActivity.markICPins(position, "NOT");
-
             // Register pin functions with MainActivity
             registerPinFunctions();
         }
@@ -35,22 +40,22 @@ public class NOT extends ICGate {
         for (int pin : inputPins) {
             Coordinate pinCoord = getPhysicalPinCoordinate(pin);
             if (pinCoord != null) {
-                mainActivity.registerICPin(pinCoord, "INPUT", this);
+                icPinManager.registerICPin(pinCoord, "INPUT", this);
             }
         }
 
         for (int pin : outputPins) {
             Coordinate pinCoord = getPhysicalPinCoordinate(pin);
             if (pinCoord != null) {
-                mainActivity.registerICPin(pinCoord, "OUTPUT", this);
+                icPinManager.registerICPin(pinCoord, "OUTPUT", this);
             }
         }
 
         // Register power pins
         Coordinate vccCoord = getPhysicalPinCoordinate(vccPin);
         Coordinate gndCoord = getPhysicalPinCoordinate(gndPin);
-        if (vccCoord != null) mainActivity.registerICPin(vccCoord, "VCC", this);
-        if (gndCoord != null) mainActivity.registerICPin(gndCoord, "GND", this);
+        if (vccCoord != null) icPinManager.registerICPin(vccCoord, "VCC", this);
+        if (gndCoord != null) icPinManager.registerICPin(gndCoord, "GND", this);
     }
 
     private Coordinate getPhysicalPinCoordinate(int logicalPin) {
@@ -67,12 +72,13 @@ public class NOT extends ICGate {
 
     @Override
     public int execute(int[] inputs) {
-        if (inputs.length >= 1) {
-            return inputs[0] == 0 ? 1 : 0; // NOT operation
+        if (inputs.length >= 2) {
+            return inputs[0] & inputs[1]; // AND operation
         }
         return 0;
     }
 
+    // Execute all 4 AND gates in the IC
     public int[] executeAllGates(int[] allInputs) {
         int[] outputs = new int[6];
         for (int i = 0; i < 6 && i < allInputs.length; i++) {
@@ -92,7 +98,7 @@ public class NOT extends ICGate {
         for (int i = 0; i < gatePins.length && i < 2; i++) {
             Coordinate pinCoord = getPhysicalPinCoordinate(gatePins[i]);
             if (pinCoord != null && mainActivity != null) {
-                inputs[i] = mainActivity.getPinValue(pinCoord);
+                inputs[i] = icPinManager.getPinValue(pinCoord);
             }
         }
 
@@ -104,7 +110,7 @@ public class NOT extends ICGate {
             case 0: return new int[]{1};   // Gate 1: pins 1 -> output 2
             case 1: return new int[]{2};   // Gate 2: pins 3 -> output 4
             case 2: return new int[]{3};   // Gate 3: pins 5 -> output 6
-            case 3: return new int[]{4};   // Gate 4: pins 8 -> output 19
+            case 3: return new int[]{4};   // Gate 4: pins 8 -> output 9
             case 4: return new int[]{5};   // Gate 5: pins 10 -> output 11
             case 5: return new int[]{6};   // Gate 6: pins 12 -> output 13
             default: return new int[]{0, 0};
