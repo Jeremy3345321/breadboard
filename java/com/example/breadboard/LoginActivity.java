@@ -25,19 +25,26 @@ public class LoginActivity extends AppCompatActivity {
         btnLogin = (Button) findViewById(R.id.btnsignin1);
         DB = new DBHelper(this);
 
+        // In LoginActivity.java - Updated btnLogin.setOnClickListener method
+
         btnLogin.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-
                 String user = username.getText().toString();
                 String pass = password.getText().toString();
 
                 if(user.isEmpty() || pass.isEmpty())
                     Toast.makeText(LoginActivity.this, "Please enter all the field", Toast.LENGTH_SHORT).show();
                 else {
-                    Boolean checkuserpass =  DB.checkusernamepassword(user, pass);
+                    Boolean checkuserpass = DB.checkusernamepassword(user, pass);
                     if(checkuserpass){
                         Toast.makeText(LoginActivity.this,"Sign in successful", Toast.LENGTH_SHORT).show();
+
+                        // Use UserAuthentication to manage user session
+                        UserAuthentication userAuth = UserAuthentication.getInstance(LoginActivity.this);
+                        userAuth.loginUser(user);
+
+                        // Navigate to HomeActivity
                         Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
                         startActivity(intent);
                     }else{
@@ -46,6 +53,5 @@ public class LoginActivity extends AppCompatActivity {
                 }
             }
         });
-
     }
 }

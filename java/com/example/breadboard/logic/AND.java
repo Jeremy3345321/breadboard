@@ -4,8 +4,6 @@ import android.widget.Button;
 
 import com.example.breadboard.ICPinManager;
 import com.example.breadboard.ICSetup;
-import com.example.breadboard.ICPinManager;
-import com.example.breadboard.ICPinManager.ICPinInfo;
 import com.example.breadboard.MainActivity;
 import com.example.breadboard.model.Coordinate;
 
@@ -76,7 +74,6 @@ public class AND extends ICGate {
     @Override
     public int execute(int[] inputs) {
         if (inputs.length >= 2) {
-            System.out.println("Perform AND operation");
             return inputs[0] & inputs[1]; // AND operation
         }
         return 0;
@@ -85,9 +82,11 @@ public class AND extends ICGate {
     // Execute all 4 AND gates in the IC
     public int[] executeAllGates(int[][] allInputs) {
         int[] outputs = new int[4];
-        for (int i = 0; i < 4 && i < allInputs.length; i++) {
+        int i;
+        for (i = 0; i < 4 && i < allInputs.length; i++) {
             outputs[i] = execute(allInputs[i]);
         }
+        System.out.println("Perform AND operation x" + i);
         return outputs;
     }
 

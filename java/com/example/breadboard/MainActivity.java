@@ -1,21 +1,8 @@
 package com.example.breadboard;
 
-import com.example.breadboard.logic.ICGate;
-import com.example.breadboard.logic.ICGateInfo;
-import com.example.breadboard.model.Attribute;
-import com.example.breadboard.model.Coordinate;
-import com.example.breadboard.model.Pins;
-import com.example.breadboard.ICPinManager;
-import com.example.breadboard.ICPinManager.ICPinInfo;
-import com.example.breadboard.InputManager.InputInfo;
-import com.example.breadboard.OutputManager;
-
-import java.util.HashMap;
-import java.util.Map;
-import android.app.AlertDialog;
-import android.graphics.Color;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
-import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.Button;
 import android.widget.GridLayout;
@@ -25,11 +12,22 @@ import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.FrameLayout;
+
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
+
+import com.example.breadboard.ICPinManager;
+import com.example.breadboard.ICPinManager.ICPinInfo;
+import com.example.breadboard.InputManager.InputInfo;
+import com.example.breadboard.OutputManager;
+import com.example.breadboard.logic.ICGateInfo;
+import com.example.breadboard.model.Attribute;
+import com.example.breadboard.model.Coordinate;
+import com.example.breadboard.model.Pins;
+
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements BreadboardSetup.OnPinClickListener {
 
@@ -39,6 +37,9 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     private ICPinManager icPinManager;
     private InputManager inputManager;
     private OutputManager outputManager;
+    private AddConnection addConnection;
+    private RemoveConnection removeConnection;
+
 
     // UI Components
     private GridLayout topGrid, middleGrid, bottomGrid;
@@ -53,6 +54,9 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
     private Map<Coordinate, TextView> inputLabels = new HashMap<>();
+    private String currentUsername = "defaultUser"; // You'll need to get this from login/session
+    private String currentCircuitName = "defaultCircuit"; // You'll need to get this from circuit selection
+
     Button executeButton;
 
 
@@ -91,6 +95,48 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         setupBreadboard();
     }
 
+    private void debugDatabaseAccess() {
+        DBHelper dbHelper = new DBHelper(this);
+
+        // Force database creation and get info
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        System.out.println("=== DATABASE ACCESS DEBUG ===");
+        System.out.println("Database path: " + db.getPath());
+        System.out.println("Database version: " + db.getVersion());
+        System.out.println("Database is open: " + db.isOpen());
+        System.out.println("Database is read only: " + db.isReadOnly());
+
+        // Check tables
+        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'", null);
+        System.out.println("Tables found:");
+        if (cursor.moveToFirst()) {
+            do {
+                System.out.println("- " + cursor.getString(0));
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+
+        // Don't close the database here to keep it open for App Inspector
+        // db.close(); // Comment this out temporarily
+
+        System.out.println("================================");
+    }
+
+    private void debugDatabase() {
+        System.out.println("🔍 Starting Database Debug...");
+
+        DBHelper dbHelper = new DBHelper(this);
+
+        // Full comprehensive debug
+        dbHelper.fullDatabaseDebug();
+
+        // Or individual checks:
+        // dbHelper.listAllTables();
+        // dbHelper.showTableStructure("inputs");
+        // dbHelper.showTableData("inputs");
+    }
+
     private void initializeComponents() {
         //  Initializing UI Elements
         topGrid = findViewById(R.id.topGrid);
@@ -114,18 +160,32 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
 
         // Initialize ICSetup
         icSetup = new ICSetup(this, icContainer, pinAttributes, icGates, gates,
-                inputs, outputs, vccPins, gndPins, icGateObjects);
+                inputs, outputs, vccPins, gndPins, icGateObjects, addConnection);
         // Initialize ICPinManager
         icPinManager = new ICPinManager(this, pinAttributes, vccPins, gndPins, inputs);
 
         // Initialize InputManager
-        inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs, inputNames, inputLabels, inputDisplayContainer);
+        inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs,
+                inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
 
         // Intialize OutputManager
         outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager);
 
+        // Initialize AddConnection
+        addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
+                inputManager, outputManager, vccPins, gndPins);
+
+        // Initialize RemoveConnection
+        removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
+                inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
+
+        debugDatabase();
+
         Button executeButton = findViewById(R.id.btnExecute);
         executeButton.setOnClickListener(v -> executeCircuit());
+
+        Button clearButton = findViewById(R.id.btnClear);
+        clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
     }
     private void executeCircuit() {
         if (icGateObjects.isEmpty()) {
@@ -247,113 +307,10 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         ImageButton pin = pins[coord.s][coord.r][coord.c];
 
         // Check current pin state and show appropriate dialog
-        if (isEmptyPin(coord)) {
-            showPinConfigDialog(coord);
+        if (addConnection.isEmptyPin(coord)) {
+            addConnection.showPinConfigDialog(coord);
         } else {
-            showPinRemovalDialog(coord);
-        }
-    }
-
-    private void showPinConfigDialog(Coordinate coord) {
-        String[] options = {"Add IC", "Add Input", "Add Output", "Add Vcc", "Add Ground", "Connect Pin"};
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Pin Configuration")
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0: addIC(coord); break;
-                        case 1: addInput(coord); break;
-                        case 2: addOutput(coord); break;
-                        case 3: addVcc(coord); break;
-                        case 4: addGround(coord); break;
-                        case 5: connectPin(coord); break;
-                    }
-                })
-                .show();
-    }
-
-    private void showPinRemovalDialog(Coordinate coord) {
-        String[] options = {"Remove Connection", "Change Connection", "Cancel"};
-
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Pin Connection")
-                .setItems(options, (dialog, which) -> {
-                    switch (which) {
-                        case 0: removeConnection(coord); break;
-                        case 1:
-                            removeConnection(coord);
-                            showPinConfigDialog(coord);
-                            break;
-                        case 2: break; // Cancel
-                    }
-                })
-                .show();
-    }
-
-    private boolean isEmptyPin(Coordinate coord) {
-        ImageButton pin = pins[coord.s][coord.r][coord.c];
-        Attribute attr = pinAttributes[coord.s][coord.r][coord.c];
-
-        // Check if pin has original drawable and no special attributes
-        boolean hasOriginalDrawable = pin.getDrawable().getConstantState().equals(
-                ContextCompat.getDrawable(this, R.drawable.breadboard_pin).getConstantState());
-
-        // Pin is empty if it has original drawable AND no attributes set (including IC markers)
-        return hasOriginalDrawable && attr.link == -1 && attr.value == -1;
-    }
-
-    private Coordinate isFree(Coordinate src) {
-        // Check all 14 pins of the IC
-        // Pins 1-7 go on row F (section 1, row 0)
-        for (int pin = 0; pin < 7; pin++) {
-            int c = src.c + pin;
-            if (c < COLS) {
-                Coordinate checkCoord = new Coordinate(1, 0, c);
-                if (!isEmptyPin(checkCoord)) {
-                    return checkCoord;
-                }
-            }
-        }
-
-        // Pins 8-14 go on row E (section 0, row 4) in reverse order
-        for (int pin = 0; pin < 7; pin++) {
-            int c = src.c + (6 - pin);
-            if (c < COLS) {
-                Coordinate checkCoord = new Coordinate(0, 4, c);
-                if (!isEmptyPin(checkCoord)) {
-                    return checkCoord;
-                }
-            }
-        }
-
-        return null; // All pins are free
-    }
-
-    private void addIC(Coordinate coord) {
-        if (coord.s != 0 || coord.r != 4) {
-            showToast("An IC can only be added on the E Row.");
-            return;
-        }
-        if (coord.c > 57) {
-            showToast("An IC has 7 pins. Select a column less than 58.");
-            return;
-        }
-
-        Coordinate freePin = isFree(coord);
-        if (freePin != null) {
-            char ch = (char)(65 + freePin.r + 5 * freePin.s);
-            showToast("Cannot place IC. Connection found at " + ch + "-" + freePin.c + ".");
-            return;
-        }
-
-        icSetup.showICSelectionDialog(coord);
-    }
-
-    private void addInput(Coordinate coord) {
-        if (checkValue(coord, 0)) {
-            inputManager.showInputNameDialog(coord);
-        } else {
-            showToast("Error! Another Connection already Exists!");
+            removeConnection.showPinRemovalDialog(coord);
         }
     }
 
@@ -366,10 +323,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         inputManager.toggleInputValue(coord);
     }
 
-    private void addOutput(Coordinate coord) {
-        outputManager.addOutput(coord);
-    }
-
     // Add this new method for updating outputs after circuit execution:
     public void updateOutputDisplay() {
         outputManager.updateAllOutputs();
@@ -380,294 +333,43 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         return outputManager;
     }
 
-    private void addVcc(Coordinate coord) {
-        if (checkValue(coord, 1)) {
-            resizeSpecialPin(coord, R.drawable.breadboard_vcc);
-            vccPins.add(coord);
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 1);
-        } else {
-            showToast("Error! Another Connection already Exists!");
+    public void saveCircuitToDatabase() {
+        try {
+            inputManager.syncInputsToDatabase();
+            showToast("Circuit saved to database successfully");
+        } catch (Exception e) {
+            showToast("Error saving circuit to database");
+            System.err.println("Error saving circuit: " + e.getMessage());
         }
     }
 
-    private void addGround(Coordinate coord) {
-        if (checkValue(coord, -2)) {
-            resizeSpecialPin(coord, R.drawable.breadboard_gnd);
-            gndPins.add(coord);
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, -2);
-        } else {
-            showToast("Error! Another Connection already Exists!");
+    public void loadCircuitFromDatabase() {
+        try {
+            inputManager.loadInputsFromDatabase();
+            showToast("Circuit loaded from database successfully");
+        } catch (Exception e) {
+            showToast("Error loading circuit from database");
+            System.err.println("Error loading circuit: " + e.getMessage());
         }
     }
+    public void clearCircuitAndDatabase() {
+        try {
+            // Clear database for current circuit (uses inputManager's internal context)
+            inputManager.clearInputsFromDatabase();
 
-    private void connectPin(Coordinate coord) {
-        // TODO: Implementation for connecting pins with wires
-        showToast("Pin connection feature - implementation needed");
-    }
+            // Clear current circuit state
+            clearCircuitState();
 
-    private void removeConnection(Coordinate coord) {
-        // Remove from appropriate lists
-        inputs.remove(coord);
-        vccPins.remove(coord);
-        gndPins.remove(coord);
+            showToast("Circuit '" + currentCircuitName + "' cleared successfully");
 
-        // Special handling for output removal
-        if (outputManager.isOutput(coord)) {
-            outputManager.removeOutput(coord);
-        }
-
-        // Remove input name if it exists
-        inputNames.remove(coord);
-
-        // Handle input label removal (FrameLayout case)
-        TextView inputLabel = inputLabels.get(coord);
-        if (inputLabel != null) {
-            try {
-                // Get the FrameLayout parent
-                FrameLayout frameLayout = (FrameLayout) inputLabel.getParent();
-                if (frameLayout != null && frameLayout.getParent() == middleGrid) {
-                    // Get the FrameLayout's layout parameters before removal
-                    GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
-
-                    // Remove FrameLayout from grid
-                    middleGrid.removeView(frameLayout);
-
-                    // Create a completely new pin button
-                    ImageButton newPin = new ImageButton(this);
-                    newPin.setImageResource(R.drawable.breadboard_pin);
-                    newPin.setBackground(null);
-                    newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-
-                    // Set up the click listener
-                    final int s = coord.s, r = coord.r, c = coord.c;
-                    newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
-
-                    // Create fresh layout parameters for the new pin
-                    GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
-                    int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
-                    newParams.width = originalSize;
-                    newParams.height = originalSize;
-                    newParams.setMargins(2, -2, 2, -2); // Use original pin margins
-                    newParams.rowSpec = frameParams.rowSpec;
-                    newParams.columnSpec = frameParams.columnSpec;
-
-                    newPin.setLayoutParams(newParams);
-
-                    // Update the pins array reference
-                    pins[coord.s][coord.r][coord.c] = newPin;
-
-                    // Add new pin to grid
-                    middleGrid.addView(newPin);
-                }
-
-                // Remove from labels map
-                inputLabels.remove(coord);
-
-            } catch (ClassCastException | NullPointerException e) {
-                // Handle case where FrameLayout structure is not as expected
-                // Fall back to normal pin reset
-                resetPinToOriginal(coord);
-            }
-        } else {
-            // For non-input pins, reset normally
-            resetPinToOriginal(coord);
-        }
-
-        // Reset attributes - IMPORTANT: Only reset if it wasn't an output (output manager handles its own cleanup)
-        if (!outputManager.isOutput(coord)) {
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-1, -1);
-            removeValue(coord);
-        }
-
-        // Adjust padding counter
-        if (extraPadding > 0) {
-            extraPadding -= 7;
-        }
-
-        // Update input display after removal
-        updateInputDisplay();
-    }
-
-    // Helper method to reset pin to original state
-    private void resetPinToOriginal(Coordinate coord) {
-        ImageButton pin = pins[coord.s][coord.r][coord.c];
-        if (pin != null) {
-            // Reset pin image
-            pin.setImageResource(R.drawable.breadboard_pin);
-
-            // Check if pin is currently in a FrameLayout (input case)
-            if (pin.getParent() instanceof FrameLayout) {
-                FrameLayout frameLayout = (FrameLayout) pin.getParent();
-                if (frameLayout.getParent() == middleGrid) {
-                    // Get the FrameLayout's GridLayout parameters
-                    GridLayout.LayoutParams frameParams = (GridLayout.LayoutParams) frameLayout.getLayoutParams();
-
-                    // Remove FrameLayout from grid
-                    middleGrid.removeView(frameLayout);
-
-                    // Create new pin with proper GridLayout parameters
-                    ImageButton newPin = new ImageButton(this);
-                    newPin.setImageResource(R.drawable.breadboard_pin);
-                    newPin.setBackground(null);
-                    newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-
-                    // Set up the click listener
-                    final int s = coord.s, r = coord.r, c = coord.c;
-                    newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
-
-                    // Create fresh GridLayout parameters
-                    GridLayout.LayoutParams newParams = new GridLayout.LayoutParams();
-                    int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
-                    newParams.width = originalSize;
-                    newParams.height = originalSize;
-                    newParams.setMargins(2, -2, 2, -2);
-                    newParams.rowSpec = frameParams.rowSpec;
-                    newParams.columnSpec = frameParams.columnSpec;
-
-                    newPin.setLayoutParams(newParams);
-
-                    // Update pins array reference
-                    pins[coord.s][coord.r][coord.c] = newPin;
-
-                    // Add to grid
-                    middleGrid.addView(newPin);
-                }
-            } else {
-                // Pin is directly in GridLayout, safe to cast
-                try {
-                    GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
-                    if (params != null) {
-                        int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
-                        params.width = originalSize;
-                        params.height = originalSize;
-                        params.setMargins(2, -2, 2, -2);
-                        pin.setLayoutParams(params);
-                    }
-                } catch (ClassCastException e) {
-                    // If cast fails, recreate the pin properly
-                    recreatePinInGrid(coord);
-                }
-            }
+        } catch (Exception e) {
+            showToast("Error clearing circuit and database");
+            System.err.println("Error clearing circuit: " + e.getMessage());
+            e.printStackTrace();
         }
     }
-
-    // Helper method to recreate a pin in the grid with proper parameters
-    private void recreatePinInGrid(Coordinate coord) {
-        ImageButton oldPin = pins[coord.s][coord.r][coord.c];
-        if (oldPin != null && oldPin.getParent() != null) {
-            // Remove old pin from its parent
-            ((android.view.ViewGroup) oldPin.getParent()).removeView(oldPin);
-        }
-
-        // Create new pin
-        ImageButton newPin = new ImageButton(this);
-        newPin.setImageResource(R.drawable.breadboard_pin);
-        newPin.setBackground(null);
-        newPin.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-
-        // Set up click listener
-        final int s = coord.s, r = coord.r, c = coord.c;
-        newPin.setOnClickListener(v -> onPinClicked(new Coordinate(s, r, c)));
-
-        // Create proper GridLayout parameters
-        GridLayout.LayoutParams params = new GridLayout.LayoutParams();
-        int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
-        params.width = originalSize;
-        params.height = originalSize;
-        params.setMargins(2, -2, 2, -2);
-
-        // Calculate grid position
-        int gridRow = coord.s == 0 ? coord.r : coord.r + 6;
-        int gridCol = coord.c + 1;
-
-        params.rowSpec = GridLayout.spec(gridRow);
-        params.columnSpec = GridLayout.spec(gridCol);
-
-        newPin.setLayoutParams(params);
-
-        // Update pins array reference
-        pins[coord.s][coord.r][coord.c] = newPin;
-
-        // Add to grid
-        middleGrid.addView(newPin);
-    }
-
-    public boolean checkValue(Coordinate src, int value) {
-        int i, tmp = -1;
-
-        // Special handling for output pins (value == 2)
-        if (value == 2) {
-            // For output pins, we need to check if there's something to connect to
-            // but we don't need the pin itself to be connected
-
-            // Check if the pin itself is free
-            Attribute currentAttr = pinAttributes[src.s][src.r][src.c];
-            if (currentAttr.link != -1 || currentAttr.value != -1) {
-                return false; // Pin is already occupied
-            }
-
-            // Check if there's at least one connection in the same column
-            boolean hasConnection = false;
-            for (i = 0; i < ROWS; i++) {
-                if (src.r != i) {
-                    Attribute attr = pinAttributes[src.s][i][src.c];
-                    if (attr.link != -1 || attr.value != -1 || icPinManager.isICPin(new Coordinate(src.s, i, src.c))) {
-                        hasConnection = true;
-                        break;
-                    }
-                }
-            }
-
-            if (!hasConnection) {
-                return false; // No connection to drive the output
-            }
-
-            // Set the output pin attributes
-            pinAttributes[src.s][src.r][src.c] = new Attribute(-2, 2);
-            return true;
-        }
-
-        // Original logic for other pin types
-        for (i = 0; i < ROWS; i++) {
-            if (src.r != i) {
-                tmp = pinAttributes[src.s][i][src.c].value;
-                if (tmp != -1) {
-                    break;
-                }
-            }
-        }
-
-        if (tmp == 1 || tmp == 0 || tmp == -2) {
-            return false;
-        } else {
-            addValue(src, value);
-            return true;
-        }
-    }
-
-
-    public void addValue(Coordinate src, int value) {
-        Attribute tmp;
-
-        for (int i = 0; i < ROWS; i++) {
-            tmp = pinAttributes[src.s][i][src.c];
-            if (src.r != i && tmp.link != -1) {
-                tmp.value = value;
-                break;
-            }
-        }
-    }
-
-    public int getValue(Coordinate src) {
-        Attribute tmp;
-
-        for (int i = 0; i < ROWS; i++) {
-            tmp = pinAttributes[src.s][i][src.c];
-            if (src.r != i && tmp.link != -1 && tmp.value != 2) {
-                return tmp.value;
-            }
-        }
-        return 0;
+    public InputToDB getInputToDB() {
+        return inputManager.getInputToDB();
     }
 
     public void removeValue(Coordinate src) {
@@ -686,7 +388,67 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         return icPinManager;
     }
 
+    public AddConnection getAddConnection() {
+        return addConnection;
+    }
+
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
+
+    public void setCurrentUser(String username) {
+        this.currentUsername = username;
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(username, currentCircuitName);
+        }
+    }
+
+    public void setCurrentCircuit(String circuitName) {
+        this.currentCircuitName = circuitName;
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(currentUsername, circuitName);
+        }
+    }
+
+    public void switchCircuit(String username, String circuitName) {
+        // Clear current circuit state first
+        clearCircuitState();
+
+        // Update context
+        this.currentUsername = username;
+        this.currentCircuitName = circuitName;
+
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(username, circuitName);
+            // Load the new circuit's data
+            inputManager.loadInputsFromDatabase();
+        }
+    }
+
+    // Add method to clear current circuit state without affecting database
+    private void clearCircuitState() {
+        try {
+            // Clear visual elements first
+            List<Coordinate> inputsToRemove = new ArrayList<>(inputs);
+            for (Coordinate coord : inputsToRemove) {
+                removeConnection.removeConnection(coord);
+            }
+
+            // Clear in-memory data
+            inputs.clear();
+            inputNames.clear();
+            inputLabels.clear();
+
+            // Update UI
+            if (inputManager != null) {
+                inputManager.updateInputDisplay();
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error clearing circuit state: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
 }

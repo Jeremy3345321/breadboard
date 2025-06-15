@@ -10,9 +10,13 @@ import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import com.example.breadboard.InputToDB;
+import com.example.breadboard.InputToDB.InputData;
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
-import java.util.HashMap;
+
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -24,7 +28,11 @@ public class InputManager {
     private List<Coordinate> inputs;
     private Map<Coordinate, InputInfo> inputNames;
     private Map<Coordinate, TextView> inputLabels;
-    private LinearLayout inputDisplayContainer; // New field
+    private LinearLayout inputDisplayContainer;
+    private InputToDB inputToDB;
+    private String currentUsername;
+    private String currentCircuitName;
+
 
     public static class InputInfo {
         public String name;
@@ -39,7 +47,7 @@ public class InputManager {
     public InputManager(MainActivity mainActivity, ImageButton[][][] pins, Attribute[][][] pinAttributes,
                         GridLayout middleGrid, List<Coordinate> inputs,
                         Map<Coordinate, InputInfo> inputNames, Map<Coordinate, TextView> inputLabels,
-                        LinearLayout inputDisplayContainer) {
+                        LinearLayout inputDisplayContainer, String username, String circuitName) {
         this.mainActivity = mainActivity;
         this.pins = pins;
         this.pinAttributes = pinAttributes;
@@ -48,6 +56,11 @@ public class InputManager {
         this.inputNames = inputNames;
         this.inputLabels = inputLabels;
         this.inputDisplayContainer = inputDisplayContainer;
+        this.currentUsername = username;
+        this.currentCircuitName = circuitName;
+        this.inputToDB = getInputToDB();
+
+        loadInputsFromDatabase();
     }
 
     public void showInputNameDialog(Coordinate coord) {
@@ -99,14 +112,20 @@ public class InputManager {
     }
 
     public boolean isInputNameUsed(String name) {
-        System.out.println("Name is already used");
+        // Check both in-memory and database for this specific circuit
+        boolean inMemory = false;
         for (Coordinate coord : inputs) {
             InputInfo info = getInputInfo(coord);
             if (info != null && name.equals(info.name)) {
-                return true;
+                inMemory = true;
+                break;
             }
         }
-        return false;
+
+        boolean inDatabase = inputToDB.inputNameExists(name, currentUsername, currentCircuitName);
+
+        System.out.println("Name check for circuit " + currentCircuitName + " - In memory: " + inMemory + ", In database: " + inDatabase);
+        return inMemory || inDatabase;
     }
 
     public void createNamedInput(Coordinate coord, String name) {
@@ -114,8 +133,17 @@ public class InputManager {
         inputs.add(coord);
         pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 0);
 
-        // Store the input name
+        // Store the input name in memory
         setInputName(coord, name);
+
+        // Save to database with circuit information
+        boolean dbResult = inputToDB.insertInput(name, currentUsername, currentCircuitName, coord, 0);
+        if (!dbResult) {
+            System.err.println("Failed to save input " + name + " to database for circuit " + currentCircuitName);
+            showToast("Warning: Failed to save input to database");
+        } else {
+            System.out.println("Input " + name + " saved to database successfully for circuit " + currentCircuitName);
+        }
 
         // Create and display the input name label
         createInputLabel(coord, name);
@@ -124,7 +152,7 @@ public class InputManager {
         updateInputDisplay();
 
         showToast("Input '" + name + "' created successfully!");
-        System.out.println("Input " + name + " created");
+        System.out.println("Input " + name + " created for circuit " + currentCircuitName);
     }
 
     public void updateInputDisplay() {
@@ -184,10 +212,20 @@ public class InputManager {
         if (info != null) {
             info.value = info.value == 0 ? 1 : 0;
             pinAttributes[coord.s][coord.r][coord.c].value = info.value;
-            System.out.println("Toggled input at " + coord + " to value=" + info.value);
+
+            // Update database with circuit information
+            boolean dbResult = inputToDB.updateInputValue(info.name, currentUsername, currentCircuitName, info.value);
+            if (!dbResult) {
+                System.err.println("Failed to update input " + info.name + " value in database for circuit " + currentCircuitName);
+            } else {
+                System.out.println("Updated input " + info.name + " value to " + info.value + " in database for circuit " + currentCircuitName);
+            }
+
+            System.out.println("Toggled input at " + coord + " to value=" + info.value + " for circuit " + currentCircuitName);
             updateInputDisplay();
         }
     }
+
 
 
 
@@ -239,6 +277,115 @@ public class InputManager {
         frameLayout.setOnClickListener(v -> mainActivity.onPinClicked(coord));
     }
 
+    public void removeInputFromDatabase(Coordinate coord) {
+        InputInfo info = getInputInfo(coord);
+        if (info != null) {
+            boolean dbResult = inputToDB.deleteInput(info.name, currentUsername, currentCircuitName);
+            if (!dbResult) {
+                System.err.println("Failed to remove input " + info.name + " from database for circuit " + currentCircuitName);
+            } else {
+                System.out.println("Removed input " + info.name + " from database for circuit " + currentCircuitName);
+            }
+        } else {
+            // Try to remove by coordinate if name is not found
+            boolean dbResult = inputToDB.deleteInputByCoordinate(currentUsername, currentCircuitName, coord);
+            if (dbResult) {
+                System.out.println("Removed input at coordinate " + coord + " from database for circuit " + currentCircuitName);
+            }
+        }
+    }
+
+    public void loadInputsFromDatabase() {
+        try {
+            List<InputData> dbInputs = inputToDB.loadInputsForCircuit(currentUsername, currentCircuitName);
+
+            for (InputData inputData : dbInputs) {
+                Coordinate coord = inputData.getCoordinate();
+
+                // Restore the input in memory
+                if (!inputs.contains(coord)) {
+                    inputs.add(coord);
+                }
+
+                // Set pin attributes
+                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, inputData.value);
+
+                // Store input info in memory
+                inputNames.put(coord, new InputInfo(inputData.name, inputData.value));
+
+                // Restore visual representation
+                mainActivity.resizeSpecialPin(coord, R.drawable.breadboard_inpt);
+                createInputLabel(coord, inputData.name);
+
+                System.out.println("Loaded input " + inputData.name + " from database at " + coord + " for circuit " + currentCircuitName);
+            }
+
+            // Update display after loading all inputs
+            updateInputDisplay();
+
+            System.out.println("Loaded " + dbInputs.size() + " inputs from database for circuit " + currentCircuitName);
+
+        } catch (Exception e) {
+            System.err.println("Error loading inputs from database for circuit " + currentCircuitName + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public void syncInputsToDatabase() {
+        try {
+            List<InputData> currentInputs = new ArrayList<>();
+
+            for (Coordinate coord : inputs) {
+                InputInfo info = getInputInfo(coord);
+                if (info != null) {
+                    currentInputs.add(new InputData(info.name, currentUsername, currentCircuitName,
+                            coord.s, coord.r, coord.c, info.value));
+                }
+            }
+
+            boolean result = inputToDB.syncInputsForCircuit(currentUsername, currentCircuitName, currentInputs);
+            if (result) {
+                System.out.println("Successfully synced " + currentInputs.size() + " inputs to database for circuit " + currentCircuitName);
+            } else {
+                System.err.println("Failed to sync inputs to database for circuit " + currentCircuitName);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error syncing inputs to database for circuit " + currentCircuitName + ": " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+
+    public void clearInputsFromDatabase() {
+        boolean result = inputToDB.clearInputsForCircuit(currentUsername, currentCircuitName);
+        if (result) {
+            System.out.println("Cleared all inputs from database for circuit " + currentCircuitName);
+        } else {
+            System.err.println("Failed to clear inputs from database for circuit " + currentCircuitName);
+        }
+    }
+
+    public void updateCircuitContext(String username, String circuitName) {
+        this.currentUsername = username;
+        this.currentCircuitName = circuitName;
+        System.out.println("InputManager context updated - Username: " + username + ", Circuit: " + circuitName);
+    }
+
+    public String getCurrentCircuitName() {
+        return currentCircuitName;
+    }
+
+    public String getCurrentUsername() {
+        return currentUsername;
+    }
+
+
+    // New method to get database instance for external use
+    public InputToDB getInputToDB() {
+        return inputToDB;
+    }
+
     public void setInputName(Coordinate coord, String name) {
         inputNames.put(coord, new InputInfo(name, 0)); // Default value is 0 (LOW)
     }
@@ -254,5 +401,37 @@ public class InputManager {
 
     private void showToast(String message) {
         Toast.makeText(mainActivity, message, Toast.LENGTH_SHORT).show();
+    }
+
+    public void debugDatabase() {
+        System.out.println("=== DATABASE DEBUG ===");
+
+        // Check what tables exist
+        if (inputToDB != null) {
+            DBHelper dbHelper = new DBHelper(mainActivity);
+            dbHelper.checkTables(); // This calls the new method in DBHelper
+
+            // Try to get a database connection
+            try {
+                android.database.sqlite.SQLiteDatabase db = dbHelper.getReadableDatabase();
+                System.out.println("Database connection successful");
+
+                // Check specifically for inputs table
+                android.database.Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='inputs'", null);
+                if (cursor.moveToFirst()) {
+                    System.out.println("inputs table EXISTS in database");
+                } else {
+                    System.out.println("inputs table DOES NOT EXIST in database");
+                }
+                cursor.close();
+                db.close();
+
+            } catch (Exception e) {
+                System.err.println("Database error: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        System.out.println("=== END DEBUG ===");
     }
 }

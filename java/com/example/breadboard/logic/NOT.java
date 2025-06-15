@@ -29,6 +29,7 @@ public class NOT extends ICGate {
     public void init() {
         // Initialize NOT gate pin connections
         // Request MainActivity to mark the pins and get pin mappings
+        System.out.println("NOT gate initialized");
         if (mainActivity != null) {
             // Register pin functions with MainActivity
             registerPinFunctions();
@@ -81,9 +82,11 @@ public class NOT extends ICGate {
     // Execute all 4 AND gates in the IC
     public int[] executeAllGates(int[] allInputs) {
         int[] outputs = new int[6];
-        for (int i = 0; i < 6 && i < allInputs.length; i++) {
+        int i;
+        for (i = 0; i < 6 && i < allInputs.length; i++) {
             outputs[i] = execute(new int[]{allInputs[i]});
         }
+        System.out.println("Perform NOT operation x" + i);
         return outputs;
     }
 

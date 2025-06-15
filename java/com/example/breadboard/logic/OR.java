@@ -29,6 +29,7 @@ public class OR extends ICGate {
     public void init() {
         // Initialize OR gate pin connections
         // Request MainActivity to mark the pins and get pin mappings
+        System.out.println("OR gate initialized");
         if (mainActivity != null) {
             // Register pin functions with MainActivity
             registerPinFunctions();
@@ -81,11 +82,14 @@ public class OR extends ICGate {
     // Execute all 4 OR gates in the IC
     public int[] executeAllGates(int[][] allInputs) {
         int[] outputs = new int[4];
-        for (int i = 0; i < 4 && i < allInputs.length; i++) {
+        int i;
+        for (i = 0; i < 4 && i < allInputs.length; i++) {
             outputs[i] = execute(allInputs[i]);
         }
+        System.out.println("Perform OR operation x" + i);
         return outputs;
     }
+
 
     // Get input values for a specific gate within the IC
     public int[] getGateInputs(int gateNumber) {

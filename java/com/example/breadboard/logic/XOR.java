@@ -29,6 +29,7 @@ public class XOR extends ICGate {
     public void init() {
         // Initialize XOR gate pin connections
         // Request MainActivity to mark the pins and get pin mappings
+        System.out.println("XOR gate initialized");
         if (mainActivity != null) {
             // Register pin functions with MainActivity
             registerPinFunctions();
@@ -81,9 +82,11 @@ public class XOR extends ICGate {
     // Execute all 4 XOR gates in the IC
     public int[] executeAllGates(int[][] allInputs) {
         int[] outputs = new int[4];
-        for (int i = 0; i < 4 && i < allInputs.length; i++) {
+        int i;
+        for (i = 0; i < 4 && i < allInputs.length; i++) {
             outputs[i] = execute(allInputs[i]);
         }
+        System.out.println("Perform XOR operation x" + i);
         return outputs;
     }
 

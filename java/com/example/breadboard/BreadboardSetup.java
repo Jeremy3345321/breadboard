@@ -7,8 +7,6 @@ import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.TextView;
 
-import androidx.core.content.ContextCompat;
-
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
 

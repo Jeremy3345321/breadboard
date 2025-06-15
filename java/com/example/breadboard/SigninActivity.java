@@ -44,12 +44,22 @@ public class SigninActivity extends AppCompatActivity {
                             Boolean insert = DB.insertData(user, pass);
                             if (insert) {
                                 Toast.makeText(SigninActivity.this, "Registered successfully", Toast.LENGTH_SHORT).show();
+
+                                // Use UserAuthentication to manage user session
+                                UserAuthentication userAuth = UserAuthentication.getInstance(SigninActivity.this);
+                                userAuth.loginUser(user);
+
+                                // Navigate to HomeActivity
                                 Intent intent = new Intent(getApplicationContext(), HomeActivity.class);
                                 startActivity(intent);
                             } else {
                                 Toast.makeText(SigninActivity.this, "Registration failed", Toast.LENGTH_SHORT).show();
                             }
+                        } else {
+                            Toast.makeText(SigninActivity.this, "User already exists", Toast.LENGTH_SHORT).show();
                         }
+                    } else {
+                        Toast.makeText(SigninActivity.this, "Passwords do not match", Toast.LENGTH_SHORT).show();
                     }
                 }
             }

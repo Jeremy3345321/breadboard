@@ -1,9 +1,9 @@
 package com.example.breadboard;
 
+import com.example.breadboard.MainActivity;
 import com.example.breadboard.logic.ICGate;
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
-import com.example.breadboard.MainActivity;
 
 import java.util.HashMap;
 import java.util.List;
@@ -103,8 +103,21 @@ public class ICPinManager {
         }
 
         // For regular pins, use existing logic
-        return mainActivity.getValue(pinCoord);
+        return getValue(pinCoord);
     }
+
+    public int getValue(Coordinate src) {
+        Attribute tmp;
+
+        for (int i = 0; i < ROWS; i++) {
+            tmp = pinAttributes[src.s][i][src.c];
+            if (src.r != i && tmp.link != -1 && tmp.value != 2) {
+                return tmp.value;
+            }
+        }
+        return 0;
+    }
+
 
     private int getColumnValue(Coordinate pinCoord) {
         // Check all rows in the same section and column
@@ -222,10 +235,7 @@ public class ICPinManager {
     public void unregisterICPins(ICGate icGate) {
         icPinRegistry.entrySet().removeIf(entry -> entry.getValue().icGate == icGate);
     }
-    
-    /**
-     * FIXED: Add debug method to check IC pin registry
-     */
+
     public void debugPrintICPins() {
         System.out.println("=== IC Pin Registry Debug ===");
         for (Map.Entry<Coordinate, ICPinInfo> entry : icPinRegistry.entrySet()) {

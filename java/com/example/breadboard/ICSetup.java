@@ -6,6 +6,7 @@ import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
 
+import com.example.breadboard.AddConnection;
 import com.example.breadboard.logic.AND;
 import com.example.breadboard.logic.ICGate;
 import com.example.breadboard.logic.ICGateInfo;
@@ -16,14 +17,13 @@ import com.example.breadboard.logic.OR;
 import com.example.breadboard.logic.XOR;
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
-import com.example.breadboard.ICPinManager;
-import com.example.breadboard.ICPinManager.ICPinInfo;
 
 import java.util.Arrays;
 import java.util.List;
 
 public class ICSetup {
     private MainActivity mainActivity;
+    private AddConnection addConnection;
     private RelativeLayout icContainer;
     private Attribute[][][] pinAttributes;
     private List<Button> icGates;
@@ -43,7 +43,7 @@ public class ICSetup {
                    Attribute[][][] pinAttributes, List<Button> icGates,
                    List<Object> gates, List<Coordinate> inputs,
                    List<Coordinate> outputs, List<Coordinate> vccPins,
-                   List<Coordinate> gndPins, List<ICGateInfo> icGateObjects) {
+                   List<Coordinate> gndPins, List<ICGateInfo> icGateObjects, AddConnection addConnection) {
         this.mainActivity = mainActivity;
         this.icContainer = icContainer;
         this.pinAttributes = pinAttributes;
@@ -54,6 +54,7 @@ public class ICSetup {
         this.vccPins = vccPins;
         this.gndPins = gndPins;
         this.icGateObjects = icGateObjects;
+        this.addConnection = addConnection;
     }
 
     public void showICSelectionDialog(Coordinate coord) {
@@ -178,7 +179,7 @@ public class ICSetup {
         System.out.println("Circuit executed");
         // Set VCC pins to high
         for (Coordinate coord : vccPins) {
-            mainActivity.addValue(coord, 1);
+            addConnection.addValue(coord, 1);
         }
 
         // Set input pins - use their current values instead of always setting to 0
@@ -326,7 +327,7 @@ public class ICSetup {
                 System.out.println("Invalid pin coordinate for logical pin: " + inputPins[i]);
             }
         }
-        System.out.println("getGateInputsForSpecificGate Gate#" + gateNumber + " inputPins: " + java.util.Arrays.toString(inputPins) + " inputs: " + java.util.Arrays.toString(inputs));
+        System.out.println("getGateInputsForSpecificGate Gate#" + gateNumber + " inputPins: " + Arrays.toString(inputPins) + " inputs: " + Arrays.toString(inputs));
         return inputs;
     }
 
@@ -516,7 +517,7 @@ public class ICSetup {
             }
         }
 
-        System.out.println("getICPinConnections: " + java.util.Arrays.toString(connections));
+        System.out.println("getICPinConnections: " + Arrays.toString(connections));
         return connections;
     }
 
