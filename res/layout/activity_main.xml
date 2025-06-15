@@ -12,7 +12,8 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="8dp"
-        android:background="#FFF8F0">
+        android:clipChildren="false"
+        android:background="@color/white">
 
         <!-- Title -->
         <TextView
@@ -62,12 +63,11 @@
                     android:padding="4dp" />
 
                 <!-- IC Container (Middle area for ICs) -->
-                <LinearLayout
+                <RelativeLayout
                     android:id="@+id/icContainer"
                     android:layout_width="wrap_content"
                     android:layout_height="50dp"
                     android:layout_centerVertical="true"
-                    android:layout_marginStart="30dp"
                     android:background="#E0E0E0"
                     android:orientation="horizontal" />
 
@@ -117,6 +117,39 @@
                 android:layout_marginStart="8dp"
                 android:backgroundTint="#F44336"
                 android:textColor="@android:color/white" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="8dp"
+            android:background="#F0F0F0">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Inputs:"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="#333333"
+                android:paddingBottom="8dp" />
+
+            <HorizontalScrollView
+                android:id="@+id/inputDisplayScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="horizontal">
+
+                <LinearLayout
+                    android:id="@+id/inputDisplayContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:padding="4dp" />
+
+            </HorizontalScrollView>
 
         </LinearLayout>
 

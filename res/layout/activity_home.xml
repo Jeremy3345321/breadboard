@@ -5,17 +5,38 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".HomeActivity">
+    tools:context="com.example.breadboard.HomeActivity">
 
     <TextView
+        android:id="@+id/projectsTitle"
         android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginTop="25dp"
         android:layout_marginLeft="25dp"
         android:text="Projects"
-        android:textSize="22sp"
+        android:textSize="28sp"
         android:textStyle="bold"
-        android:textColor="@color/black"
-        android:layout_height="wrap_content"/>
+        android:textColor="@color/black" />
+
+    <ScrollView
+        android:id="@+id/circuitScrollView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/projectsTitle"
+        android:layout_marginTop="20dp"
+        android:layout_marginLeft="20dp"
+        android:layout_marginRight="20dp"
+        android:layout_marginBottom="100dp"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/circuitContainer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="5dp" />
+
+    </ScrollView>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:layout_width="wrap_content"
@@ -31,6 +52,6 @@
         android:clickable="true"
         android:foreground="?attr/selectableItemBackground"/>
 
-
 </RelativeLayout>
+
 
