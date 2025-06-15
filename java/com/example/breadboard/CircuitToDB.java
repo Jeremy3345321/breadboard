@@ -12,6 +12,11 @@ public class CircuitToDB {
     private DBHelper dbHelper;
     private Context context;
 
+    public CircuitToDB(Context context) {
+        this.context = context;
+        this.dbHelper = new DBHelper(context);
+    }
+
     public static class CircuitData {
         public int id;
         public String circuitName;
@@ -42,11 +47,6 @@ public class CircuitToDB {
             this.createdDate = String.valueOf(currentTime);
             this.lastModified = String.valueOf(currentTime);
         }
-    }
-
-    public CircuitToDB(Context context) {
-        this.context = context;
-        this.dbHelper = new DBHelper(context);
     }
 
     /**
@@ -228,6 +228,37 @@ public class CircuitToDB {
         }
         
         return exists;
+    }
+
+    public int getCircuitId(String circuitName, String username) {
+        SQLiteDatabase db = null;
+        Cursor cursor = null;
+        int circuitId = -1;
+
+        try {
+            db = dbHelper.getReadableDatabase();
+            cursor = db.rawQuery("SELECT id FROM circuits WHERE circuit_name = ? AND username = ?",
+                    new String[]{circuitName, username});
+
+            if (cursor.moveToFirst()) {
+                circuitId = cursor.getInt(cursor.getColumnIndexOrThrow("id"));
+            }
+
+            System.out.println("CircuitToDB: Found circuit ID " + circuitId + " for circuit '" + circuitName + "' owned by '" + username + "'");
+
+        } catch (Exception e) {
+            System.err.println("Error getting circuit ID for circuit '" + circuitName + "' and user '" + username + "': " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            if (db != null) {
+                db.close();
+            }
+        }
+
+        return circuitId;
     }
 
     /**

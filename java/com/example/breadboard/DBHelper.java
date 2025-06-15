@@ -11,7 +11,7 @@ public class DBHelper extends SQLiteOpenHelper {
     public static final String DBNAME = "Breadboard.db";
 
     public DBHelper(Context context) {
-        super(context, "Breadboard.db", null, 5); // Increment to version 5 for updated inputs table
+        super(context, "Breadboard.db", null, 6); // Increment to version 6 for removing value column
     }
 
     @Override
@@ -19,7 +19,7 @@ public class DBHelper extends SQLiteOpenHelper {
         // Create users table
         MyDB.execSQL("create Table users(username TEXT primary key, password TEXT)");
 
-        // Create inputs table with circuit association
+        // MODIFIED: Create inputs table WITHOUT value column
         MyDB.execSQL("create Table inputs(" +
                 "id INTEGER primary key AUTOINCREMENT, " +
                 "name TEXT, " +
@@ -28,7 +28,6 @@ public class DBHelper extends SQLiteOpenHelper {
                 "section INTEGER, " +
                 "row_pos INTEGER, " +
                 "column_pos INTEGER, " +
-                "value INTEGER, " +
                 "UNIQUE(name, username, circuit_name), " +
                 "FOREIGN KEY (username) REFERENCES users(username))");
 
@@ -41,7 +40,7 @@ public class DBHelper extends SQLiteOpenHelper {
                 "last_modified TEXT, " +
                 "FOREIGN KEY (username) REFERENCES users(username))");
 
-        System.out.println("Database created with version 5 - all tables created with updated inputs table");
+        System.out.println("Database created with version 6 - inputs table created without value column");
     }
 
     @Override
@@ -52,6 +51,7 @@ public class DBHelper extends SQLiteOpenHelper {
             try {
                 // Drop and recreate inputs table with new structure
                 MyDB.execSQL("DROP TABLE IF EXISTS inputs");
+
                 MyDB.execSQL("create Table inputs(" +
                         "id INTEGER primary key AUTOINCREMENT, " +
                         "name TEXT, " +
@@ -60,7 +60,6 @@ public class DBHelper extends SQLiteOpenHelper {
                         "section INTEGER, " +
                         "row_pos INTEGER, " +
                         "column_pos INTEGER, " +
-                        "value INTEGER, " +
                         "UNIQUE(name, username, circuit_name), " +
                         "FOREIGN KEY (username) REFERENCES users(username))");
 

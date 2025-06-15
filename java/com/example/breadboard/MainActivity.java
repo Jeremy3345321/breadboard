@@ -95,6 +95,60 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         setupBreadboard();
     }
 
+    private void initializeComponents() {
+        // Get circuit context first before intializing other components.
+        getCurrentCircuitContext();
+
+        //  Initializing UI Elements
+        topGrid = findViewById(R.id.topGrid);
+        middleGrid = findViewById(R.id.middleGrid);
+        bottomGrid = findViewById(R.id.bottomGrid);
+        icContainer = findViewById(R.id.icContainer);
+        inputDisplayScrollView = findViewById(R.id.inputDisplayScrollView);
+        inputDisplayContainer = findViewById(R.id.inputDisplayContainer);
+
+        // Initialize data structures
+        pins = new ImageButton[SECTIONS][ROWS][COLS];
+        pinAttributes = new Attribute[SECTIONS][ROWS][COLS];
+        topLabels = new TextView[COLS];
+        bottomLabels = new TextView[COLS];
+        rowLabels = new TextView[12];
+
+        // Initialize BreadboardSetup
+        breadboardSetup = new BreadboardSetup(this, topGrid, middleGrid, bottomGrid,
+                pins, pinAttributes, topLabels, bottomLabels, rowLabels);
+        breadboardSetup.setPinClickListener(this);
+
+        // Initialize ICSetup
+        icSetup = new ICSetup(this, icContainer, pinAttributes, icGates, gates,
+                inputs, outputs, vccPins, gndPins, icGateObjects, addConnection);
+        // Initialize ICPinManager
+        icPinManager = new ICPinManager(this, pinAttributes, vccPins, gndPins, inputs);
+
+        // Initialize InputManager (without loading from database yet)
+        inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs,
+                inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
+
+        // Intialize OutputManager
+        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager);
+
+        // Initialize AddConnection
+        addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
+                inputManager, outputManager, vccPins, gndPins);
+
+        // Initialize RemoveConnection
+        removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
+                inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
+
+        debugDatabase();
+
+        Button executeButton = findViewById(R.id.btnExecute);
+        executeButton.setOnClickListener(v -> executeCircuit());
+
+        Button clearButton = findViewById(R.id.btnClear);
+        clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
+    }
+
     private void debugDatabaseAccess() {
         DBHelper dbHelper = new DBHelper(this);
 
@@ -137,56 +191,50 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // dbHelper.showTableData("inputs");
     }
 
-    private void initializeComponents() {
-        //  Initializing UI Elements
-        topGrid = findViewById(R.id.topGrid);
-        middleGrid = findViewById(R.id.middleGrid);
-        bottomGrid = findViewById(R.id.bottomGrid);
-        icContainer = findViewById(R.id.icContainer);
-        inputDisplayScrollView = findViewById(R.id.inputDisplayScrollView);
-        inputDisplayContainer = findViewById(R.id.inputDisplayContainer);
+    private void getCurrentCircuitContext() {
+        // Get UserAuthentication instance
+        UserAuthentication userAuth = UserAuthentication.getInstance(this);
 
-        // Initialize data structures
-        pins = new ImageButton[SECTIONS][ROWS][COLS];
-        pinAttributes = new Attribute[SECTIONS][ROWS][COLS];
-        topLabels = new TextView[COLS];
-        bottomLabels = new TextView[COLS];
-        rowLabels = new TextView[12];
+        // First, try to get from Intent (this is the primary source for circuit context)
+        String intentUsername = getIntent().getStringExtra("username");
+        String intentCircuitName = getIntent().getStringExtra("circuit_name");
 
-        // Initialize BreadboardSetup
-        breadboardSetup = new BreadboardSetup(this, topGrid, middleGrid, bottomGrid,
-                pins, pinAttributes, topLabels, bottomLabels, rowLabels);
-        breadboardSetup.setPinClickListener(this);
+        // If username is provided in Intent, use it and update UserAuthentication
+        if (intentUsername != null && !intentUsername.trim().isEmpty()) {
+            currentUsername = intentUsername;
+            // Update UserAuthentication with the current user
+            userAuth.forceSetUser(currentUsername);
+        } else {
+            // Fallback to UserAuthentication if no Intent data
+            currentUsername = userAuth.getCurrentUsername();
+        }
 
-        // Initialize ICSetup
-        icSetup = new ICSetup(this, icContainer, pinAttributes, icGates, gates,
-                inputs, outputs, vccPins, gndPins, icGateObjects, addConnection);
-        // Initialize ICPinManager
-        icPinManager = new ICPinManager(this, pinAttributes, vccPins, gndPins, inputs);
+        // Set circuit name from Intent
+        if (intentCircuitName != null && !intentCircuitName.trim().isEmpty()) {
+            currentCircuitName = intentCircuitName;
+        } else {
+            currentCircuitName = "defaultCircuit"; // Fallback
+        }
 
-        // Initialize InputManager
-        inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs,
-                inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
+        // Validate that we have valid context
+        if (currentUsername == null || currentUsername.trim().isEmpty()) {
+            System.err.println("ERROR: No valid username found!");
+            currentUsername = "defaultUser"; // Emergency fallback
+            Toast.makeText(this, "Authentication error - using default user", Toast.LENGTH_LONG).show();
+        }
 
-        // Intialize OutputManager
-        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager);
+        // Print debug info
+        System.out.println("MainActivity Circuit Context:");
+        System.out.println("- Username: " + currentUsername);
+        System.out.println("- Circuit Name: " + currentCircuitName);
+        System.out.println("- Intent Username: " + intentUsername);
+        System.out.println("- Intent Circuit: " + intentCircuitName);
+        System.out.println("- UserAuth Username: " + userAuth.getCurrentUsername());
 
-        // Initialize AddConnection
-        addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
-                inputManager, outputManager, vccPins, gndPins);
-
-        // Initialize RemoveConnection
-        removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
-                inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
-
-        debugDatabase();
-
-        Button executeButton = findViewById(R.id.btnExecute);
-        executeButton.setOnClickListener(v -> executeCircuit());
-
-        Button clearButton = findViewById(R.id.btnClear);
-        clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
+        // Print session info for debugging
+        userAuth.printSessionInfo();
     }
+
     private void executeCircuit() {
         if (icGateObjects.isEmpty()) {
             showToast("No IC gates found. Add some ICs to execute the circuit.");
@@ -212,6 +260,11 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         breadboardSetup.setupPins();
         setupScrollViews();
         synchronizeScrollViews();
+
+        // Now that pins are created, load inputs from database
+        if (inputManager != null) {
+            inputManager.loadInputsFromDatabase();
+        }
     }
 
     private void setupScrollViews() {
@@ -450,5 +503,28 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
     }
 
+    protected void onResume() {
+        super.onResume();
 
+        // Refresh circuit context when returning to activity
+        getCurrentCircuitContext();
+
+        // Update InputManager with current context
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(currentUsername, currentCircuitName);
+        }
+
+        System.out.println("MainActivity onResume - Context refreshed: " + currentUsername + " / " + currentCircuitName);
+    }
+
+    public void debugCurrentContext() {
+        System.out.println("=== CURRENT CIRCUIT CONTEXT ===");
+        System.out.println("Username: " + currentUsername);
+        System.out.println("Circuit Name: " + currentCircuitName);
+
+        UserAuthentication userAuth = UserAuthentication.getInstance(this);
+        System.out.println("UserAuth Username: " + userAuth.getCurrentUsername());
+        System.out.println("UserAuth LoggedIn: " + userAuth.isUserLoggedIn());
+        System.out.println("==============================");
+    }
 }

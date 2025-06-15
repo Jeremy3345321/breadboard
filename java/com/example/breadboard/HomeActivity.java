@@ -121,10 +121,17 @@ public class HomeActivity extends AppCompatActivity {
                 // Reload circuits to update the UI with the new circuit
                 loadUserCircuits();
 
-                // Navigate to MainActivity for circuit creation
+                // Navigate to MainActivity for circuit creation with verified context
                 Intent intent = new Intent(HomeActivity.this, MainActivity.class);
                 intent.putExtra("circuit_name", circuitName);
-                intent.putExtra("username", currentUsername);
+                intent.putExtra("username", currentUsername); // Use verified username
+                intent.putExtra("circuit_id", circuitToDB.getCircuitId(circuitName, currentUsername)); // Add circuit ID if available
+
+                // Add debug logging
+                System.out.println("HomeActivity: Starting MainActivity with context:");
+                System.out.println("- Username: " + currentUsername);
+                System.out.println("- Circuit Name: " + circuitName);
+
                 startActivity(intent);
 
                 showToast("Circuit '" + circuitName + "' created successfully!");
@@ -172,7 +179,7 @@ public class HomeActivity extends AppCompatActivity {
         // Create the main container for the circuit item
         LinearLayout circuitItem = new LinearLayout(this);
         circuitItem.setOrientation(LinearLayout.VERTICAL);
-        
+
         // Set layout parameters with margins
         LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -180,43 +187,60 @@ public class HomeActivity extends AppCompatActivity {
         );
         itemParams.setMargins(0, 0, 0, 50); // Bottom margin between items
         circuitItem.setLayoutParams(itemParams);
-        
+
         // Create and configure the circuit name TextView
         TextView circuitName = new TextView(this);
         circuitName.setText(circuitData.circuitName);
         circuitName.setTextSize(18);
         circuitName.setTextColor(Color.parseColor("#000000"));
         circuitName.setPadding(50, 70, 50, 37);
-        
+
         // Create the background drawable with border and fill
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.RECTANGLE);
         background.setColor(Color.parseColor("#FFFAF0")); // Light cream color
         background.setStroke(6, Color.parseColor("#000000")); // Black border
         background.setCornerRadius(8); // Rounded corners
-        
+
         // Set the background to the TextView
         circuitName.setBackground(background);
-        
+
         // Set layout parameters for the TextView
         LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
         );
         circuitName.setLayoutParams(textParams);
-        
+
         // Add click listener to open MainActivity with specific circuit data
         circuitItem.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // Ensure we have the current authenticated user
+                UserAuthentication userAuth = UserAuthentication.getInstance(HomeActivity.this);
+                String verifiedUsername = userAuth.getCurrentUsername();
+
+                if (verifiedUsername == null) {
+                    showToast("Please log in again");
+                    logoutUser();
+                    return;
+                }
+
                 Intent intent = new Intent(HomeActivity.this, MainActivity.class);
                 intent.putExtra("circuit_name", circuitData.circuitName);
                 intent.putExtra("circuit_id", circuitData.id);
-                intent.putExtra("username", currentUsername);
+                intent.putExtra("username", verifiedUsername); // Use verified username
+
+                // Add debug logging
+                System.out.println("HomeActivity: Opening existing circuit with context:");
+                System.out.println("- Username: " + verifiedUsername);
+                System.out.println("- Circuit Name: " + circuitData.circuitName);
+                System.out.println("- Circuit ID: " + circuitData.id);
+
                 startActivity(intent);
             }
         });
-        
+
         // Add long click listener for additional options (delete, rename, etc.)
         circuitItem.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
@@ -225,10 +249,10 @@ public class HomeActivity extends AppCompatActivity {
                 return true; // Consume the long click event
             }
         });
-        
+
         // Add the TextView to the circuit item container
         circuitItem.addView(circuitName);
-        
+
         // Add the circuit item to the main container
         circuitContainer.addView(circuitItem);
     }
@@ -245,10 +269,25 @@ public class HomeActivity extends AppCompatActivity {
                 .setPositiveButton("Delete", (dialog, which) -> deleteCircuit(circuitData))
                 .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .setNeutralButton("Open", (dialog, which) -> {
+                    // Ensure we have the current authenticated user
+                    UserAuthentication userAuth = UserAuthentication.getInstance(HomeActivity.this);
+                    String verifiedUsername = userAuth.getCurrentUsername();
+
+                    if (verifiedUsername == null) {
+                        showToast("Please log in again");
+                        logoutUser();
+                        return;
+                    }
+
                     Intent intent = new Intent(HomeActivity.this, MainActivity.class);
                     intent.putExtra("circuit_name", circuitData.circuitName);
                     intent.putExtra("circuit_id", circuitData.id);
-                    intent.putExtra("username", currentUsername);
+                    intent.putExtra("username", verifiedUsername); // Use verified username
+
+                    System.out.println("HomeActivity: Opening circuit from options with context:");
+                    System.out.println("- Username: " + verifiedUsername);
+                    System.out.println("- Circuit Name: " + circuitData.circuitName);
+
                     startActivity(intent);
                 })
                 .show();
