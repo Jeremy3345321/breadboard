@@ -54,8 +54,8 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
     private Map<Coordinate, TextView> inputLabels = new HashMap<>();
-    private String currentUsername = "defaultUser"; // You'll need to get this from login/session
-    private String currentCircuitName = "defaultCircuit"; // You'll need to get this from circuit selection
+    String currentUsername = "defaultUser"; // You'll need to get this from login/session
+    String currentCircuitName = "defaultCircuit"; // You'll need to get this from circuit selection
 
     Button executeButton;
 
@@ -130,7 +130,8 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
                 inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
 
         // Intialize OutputManager
-        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager);
+        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager, currentUsername,
+                currentCircuitName);
 
         // Initialize AddConnection
         addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
@@ -147,34 +148,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
 
         Button clearButton = findViewById(R.id.btnClear);
         clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
-    }
-
-    private void debugDatabaseAccess() {
-        DBHelper dbHelper = new DBHelper(this);
-
-        // Force database creation and get info
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-
-        System.out.println("=== DATABASE ACCESS DEBUG ===");
-        System.out.println("Database path: " + db.getPath());
-        System.out.println("Database version: " + db.getVersion());
-        System.out.println("Database is open: " + db.isOpen());
-        System.out.println("Database is read only: " + db.isReadOnly());
-
-        // Check tables
-        Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'", null);
-        System.out.println("Tables found:");
-        if (cursor.moveToFirst()) {
-            do {
-                System.out.println("- " + cursor.getString(0));
-            } while (cursor.moveToNext());
-        }
-        cursor.close();
-
-        // Don't close the database here to keep it open for App Inspector
-        // db.close(); // Comment this out temporarily
-
-        System.out.println("================================");
     }
 
     private void debugDatabase() {
@@ -261,9 +234,16 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         setupScrollViews();
         synchronizeScrollViews();
 
-        // Now that pins are created, load inputs from database
+        // Load componenets from database
         if (inputManager != null) {
             inputManager.loadInputsFromDatabase();
+        }
+        if (outputManager != null) {
+            outputManager.loadOutputsFromDatabase();
+        }
+        if (icSetup != null) {
+            icSetup.loadAllICsFromDatabase();
+            icSetup.updateCircuitContext(currentUsername, currentCircuitName);
         }
     }
 
@@ -315,6 +295,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         topScrollView.setVerticalScrollBarEnabled(false);
         middleScrollView.setVerticalScrollBarEnabled(false);
         bottomScrollView.setVerticalScrollBarEnabled(false);
+        inputDisplayScrollView.setVerticalScrollBarEnabled(false);
 
         topScrollView.setOnScrollChangeListener(scrollListener);
         middleScrollView.setOnScrollChangeListener(scrollListener);
@@ -409,6 +390,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         try {
             // Clear database for current circuit (uses inputManager's internal context)
             inputManager.clearInputsFromDatabase();
+            outputManager.clearOutputsFromDatabase();
 
             // Clear current circuit state
             clearCircuitState();
@@ -491,6 +473,12 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             inputs.clear();
             inputNames.clear();
             inputLabels.clear();
+            outputs.clear();
+
+            // Add IC clearing:
+            if (icSetup != null) {
+                icSetup.removeIC();
+            }
 
             // Update UI
             if (inputManager != null) {
@@ -512,6 +500,12 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // Update InputManager with current context
         if (inputManager != null) {
             inputManager.updateCircuitContext(currentUsername, currentCircuitName);
+        }
+        if (outputManager != null) {
+            outputManager.updateCircuitContext(currentUsername, currentCircuitName);
+        }
+        if (icSetup != null) {
+            icSetup.updateCircuitContext(currentUsername, currentCircuitName);
         }
 
         System.out.println("MainActivity onResume - Context refreshed: " + currentUsername + " / " + currentCircuitName);

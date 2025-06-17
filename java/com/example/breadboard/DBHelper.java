@@ -11,7 +11,7 @@ public class DBHelper extends SQLiteOpenHelper {
     public static final String DBNAME = "Breadboard.db";
 
     public DBHelper(Context context) {
-        super(context, "Breadboard.db", null, 6); // Increment to version 6 for removing value column
+        super(context, "Breadboard.db", null, 8); // Increment to version 8 for ics table
     }
 
     @Override
@@ -19,7 +19,7 @@ public class DBHelper extends SQLiteOpenHelper {
         // Create users table
         MyDB.execSQL("create Table users(username TEXT primary key, password TEXT)");
 
-        // MODIFIED: Create inputs table WITHOUT value column
+        // Create inputs table
         MyDB.execSQL("create Table inputs(" +
                 "id INTEGER primary key AUTOINCREMENT, " +
                 "name TEXT, " +
@@ -31,6 +31,29 @@ public class DBHelper extends SQLiteOpenHelper {
                 "UNIQUE(name, username, circuit_name), " +
                 "FOREIGN KEY (username) REFERENCES users(username))");
 
+        // Create outputs table
+        MyDB.execSQL("create Table outputs(" +
+                "id INTEGER primary key AUTOINCREMENT, " +
+                "username TEXT, " +
+                "circuit_name TEXT, " +
+                "section INTEGER, " +
+                "row_pos INTEGER, " +
+                "column_pos INTEGER, " +
+                "UNIQUE(username, circuit_name, section, row_pos, column_pos), " +
+                "FOREIGN KEY (username) REFERENCES users(username))");
+
+        // Create ics table
+        MyDB.execSQL("create Table ics(" +
+                "id INTEGER primary key AUTOINCREMENT, " +
+                "ic_type TEXT, " +
+                "username TEXT, " +
+                "circuit_name TEXT, " +
+                "section INTEGER, " +
+                "row_pos INTEGER, " +
+                "column_pos INTEGER, " +
+                "UNIQUE(ic_type, username, circuit_name, section, row_pos, column_pos), " +
+                "FOREIGN KEY (username) REFERENCES users(username))");
+
         // Create circuits table
         MyDB.execSQL("create Table circuits(" +
                 "id INTEGER primary key AUTOINCREMENT, " +
@@ -40,7 +63,7 @@ public class DBHelper extends SQLiteOpenHelper {
                 "last_modified TEXT, " +
                 "FOREIGN KEY (username) REFERENCES users(username))");
 
-        System.out.println("Database created with version 6 - inputs table created without value column");
+        System.out.println("Database created with version 8 - added ics table");
     }
 
     @Override
@@ -80,6 +103,45 @@ public class DBHelper extends SQLiteOpenHelper {
                 MyDB.execSQL("DROP TABLE IF EXISTS inputs");
                 MyDB.execSQL("DROP TABLE IF EXISTS circuits");
                 onCreate(MyDB);
+            }
+        }
+
+        // Handle upgrade to version 7 (outputs table)
+        if (oldVersion < 7) {
+            try {
+                MyDB.execSQL("create Table IF NOT EXISTS outputs(" +
+                        "id INTEGER primary key AUTOINCREMENT, " +
+                        "username TEXT, " +
+                        "circuit_name TEXT, " +
+                        "section INTEGER, " +
+                        "row_pos INTEGER, " +
+                        "column_pos INTEGER, " +
+                        "UNIQUE(username, circuit_name, section, row_pos, column_pos), " +
+                        "FOREIGN KEY (username) REFERENCES users(username))");
+
+                System.out.println("Added outputs table during upgrade to version 7");
+            } catch (Exception e) {
+                System.err.println("Error adding outputs table: " + e.getMessage());
+            }
+        }
+
+        // Handle upgrade to version 8 (ics table)
+        if (oldVersion < 8) {
+            try {
+                MyDB.execSQL("create Table IF NOT EXISTS ics(" +
+                        "id INTEGER primary key AUTOINCREMENT, " +
+                        "ic_type TEXT, " +
+                        "username TEXT, " +
+                        "circuit_name TEXT, " +
+                        "section INTEGER, " +
+                        "row_pos INTEGER, " +
+                        "column_pos INTEGER, " +
+                        "UNIQUE(ic_type, username, circuit_name, section, row_pos, column_pos), " +
+                        "FOREIGN KEY (username) REFERENCES users(username))");
+
+                System.out.println("Added ics table during upgrade to version 8");
+            } catch (Exception e) {
+                System.err.println("Error adding ics table: " + e.getMessage());
             }
         }
 
@@ -303,7 +365,7 @@ public class DBHelper extends SQLiteOpenHelper {
         listAllTables();
 
         // Check specific tables (each method manages its own connection)
-        String[] expectedTables = {"users", "inputs", "circuits"};
+        String[] expectedTables = {"users", "inputs", "outputs", "circuits", "ics"}; // Added "ics"
         for (String table : expectedTables) {
             if (tableExists(table)) {
                 showTableStructure(table);
@@ -361,7 +423,9 @@ public class DBHelper extends SQLiteOpenHelper {
         // Drop all existing tables
         db.execSQL("DROP TABLE IF EXISTS users");
         db.execSQL("DROP TABLE IF EXISTS inputs");
+        db.execSQL("DROP TABLE IF EXISTS outputs");
         db.execSQL("DROP TABLE IF EXISTS circuits");
+        db.execSQL("DROP TABLE IF EXISTS ics");
         db.execSQL("DROP TABLE IF EXISTS user_circuit");
 
         // Recreate tables

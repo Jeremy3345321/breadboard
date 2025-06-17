@@ -131,11 +131,8 @@ public class AddConnection {
     }
 
     private void addOutput(Coordinate coord) {
-        if (checkValue(coord, 2)){
-            outputManager.addOutput(coord);
-        } else {
-            showToast("Error! Another Connection already exists!");
-        }
+        System.out.println("AddConnection: addOutput method called for coordinate: " + coord);
+        outputManager.addOutput(coord);
     }
 
     private void addVcc(Coordinate coord) {
@@ -227,8 +224,8 @@ public class AddConnection {
                 return false; // No connection to drive the output
             }
 
-            // Set the output pin attributes
-            pinAttributes[src.s][src.r][src.c] = new Attribute(-2, 2);
+            // FIXED: Don't set the output pin attributes here - let OutputManager handle it
+            // pinAttributes[src.s][src.r][src.c] = new Attribute(-2, 2);
             return true;
         }
 

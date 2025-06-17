@@ -10,39 +10,37 @@ import com.example.breadboard.model.Coordinate;
 import java.util.ArrayList;
 import java.util.List;
 
-public class InputToDB {
+public class ICToDB {
     private DBHelper dbHelper;
     private Context context;
 
-    // InputToDB.java - Updated InputData class and all methods to support circuit association
-
-    public InputToDB(Context context) {
+    public ICToDB(Context context) {
         this.context = context;
         this.dbHelper = new DBHelper(context);
     }
 
-    public static class InputData {
+    public static class ICData {
         public int id;
-        public String name;
+        public String ic_type;
         public String username;
         public String circuitName;
         public int section;
         public int row_pos;
         public int column_pos;
 
-
-        public InputData(int id, String name, String username, String circuitName, int section, int row, int column) {
+        public ICData(int id, String icType, String username, String circuitName, int section, int row, int column) {
             this.id = id;
-            this.name = name;
+            this.ic_type = icType;
             this.username = username;
             this.circuitName = circuitName;
             this.section = section;
             this.row_pos = row;
             this.column_pos = column;
+
         }
 
-        public InputData(String name, String username, String circuitName, int section, int row, int column) {
-            this.name = name;
+        public ICData(String icType, String username, String circuitName, int section, int row, int column) {
+            this.ic_type = icType;
             this.username = username;
             this.circuitName = circuitName;
             this.section = section;
@@ -56,29 +54,29 @@ public class InputToDB {
     }
 
     /**
-     * Insert a new input into the database for a specific circuit
+     * Insert a new IC into the database for a specific circuit
      */
-    public boolean insertInput(String name, String username, String circuitName, Coordinate coord) {
+    public boolean insertIC(String icType, String username, String circuitName, Coordinate coord) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
 
-        values.put("name", name);
+        values.put("ic_type", icType);
         values.put("username", username);
         values.put("circuit_name", circuitName);
         values.put("section", coord.s);
         values.put("row_pos", coord.r);
         values.put("column_pos", coord.c);
 
-        long result = db.insert("inputs", null, values);
+        long result = db.insert("ics", null, values);
         db.close();
 
         return result != -1;
     }
 
     /**
-     * Update an existing input's position for a specific circuit
+     * Update an existing IC's position for a specific circuit
      */
-    public boolean updateInputPosition(String name, String username, String circuitName, Coordinate newCoord) {
+    public boolean updateICPosition(String icType, String username, String circuitName, Coordinate oldCoord, Coordinate newCoord) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         ContentValues values = new ContentValues();
 
@@ -86,77 +84,75 @@ public class InputToDB {
         values.put("row_pos", newCoord.r);
         values.put("column_pos", newCoord.c);
 
-        int rowsAffected = db.update("inputs", values,
-                "name = ? AND username = ? AND circuit_name = ?",
-                new String[]{name, username, circuitName});
+        int rowsAffected = db.update("ics", values,
+                "ic_type = ? AND username = ? AND circuit_name = ? AND section = ? AND row_pos = ? AND column_pos = ?",
+                new String[]{icType, username, circuitName, String.valueOf(oldCoord.s), String.valueOf(oldCoord.r), String.valueOf(oldCoord.c)});
         db.close();
 
         return rowsAffected > 0;
     }
 
     /**
-     * Delete an input from a specific circuit
+     * Delete an IC from a specific circuit by coordinate
      */
-    public boolean deleteInput(String name, String username, String circuitName) {
+    // Add this method to ICToDB.java if it doesn't exist
+    public boolean deleteICByCoordinate(String username, String circuitName, Coordinate coord) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsDeleted = db.delete("inputs",
-                "name = ? AND username = ? AND circuit_name = ?",
-                new String[]{name, username, circuitName});
-        db.close();
-
-        return rowsDeleted > 0;
-    }
-
-    /**
-     * Delete an input by coordinate from a specific circuit
-     */
-    public boolean deleteInputByCoordinate(String username, String circuitName, Coordinate coord) {
-        SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsDeleted = db.delete("inputs",
+        int rowsDeleted = db.delete("ics",
                 "username = ? AND circuit_name = ? AND section = ? AND row_pos = ? AND column_pos = ?",
-                new String[]{username, circuitName, String.valueOf(coord.s), String.valueOf(coord.r), String.valueOf(coord.c)});
+                new String[]{username, circuitName, String.valueOf(coord.s),
+                        String.valueOf(coord.r), String.valueOf(coord.c)});
+        db.close();
+
+        return rowsDeleted > 0;
+    }
+
+    public boolean deleteIC(String icType, String username, String circuitName, Coordinate coord) {
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+        int rowsDeleted = db.delete("ics",
+                "ic_type = ? AND username = ? AND circuit_name = ? AND section = ? AND row_pos = ? AND column_pos = ?",
+                new String[]{icType, username, circuitName, String.valueOf(coord.s), String.valueOf(coord.r), String.valueOf(coord.c)});
         db.close();
 
         return rowsDeleted > 0;
     }
 
     /**
-     * Get all inputs from a specific circuit
+     * Get all ICs from a specific circuit
      */
-    public List<InputData> getInputsForCircuit(String username, String circuitName) {
-        List<InputData> inputList = new ArrayList<>();
+    public List<ICData> getICsForCircuit(String username, String circuitName) {
+        List<ICData> icList = new ArrayList<>();
         SQLiteDatabase db = dbHelper.getReadableDatabase();
-        Cursor cursor = db.rawQuery("SELECT * FROM inputs WHERE username = ? AND circuit_name = ? ORDER BY name",
+        Cursor cursor = db.rawQuery("SELECT * FROM ics WHERE username = ? AND circuit_name = ? ORDER BY ic_type",
                 new String[]{username, circuitName});
 
         if (cursor.moveToFirst()) {
             do {
-                InputData inputData = new InputData(
+                ICData icData = new ICData(
                         cursor.getInt(cursor.getColumnIndexOrThrow("id")),
-                        cursor.getString(cursor.getColumnIndexOrThrow("name")),
+                        cursor.getString(cursor.getColumnIndexOrThrow("ic_type")),
                         cursor.getString(cursor.getColumnIndexOrThrow("username")),
                         cursor.getString(cursor.getColumnIndexOrThrow("circuit_name")),
                         cursor.getInt(cursor.getColumnIndexOrThrow("section")),
                         cursor.getInt(cursor.getColumnIndexOrThrow("row_pos")),
                         cursor.getInt(cursor.getColumnIndexOrThrow("column_pos"))
-
                 );
-                inputList.add(inputData);
+                icList.add(icData);
             } while (cursor.moveToNext());
         }
 
         cursor.close();
         db.close();
 
-        return inputList;
+        return icList;
     }
 
     /**
-     * Clear all inputs from a specific circuit
+     * Clear all ICs from a specific circuit
      */
-    public boolean clearInputsForCircuit(String username, String circuitName) {
+    public boolean clearICsForCircuit(String username, String circuitName) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
-        int rowsDeleted = db.delete("inputs", "username = ? AND circuit_name = ?",
+        int rowsDeleted = db.delete("ics", "username = ? AND circuit_name = ?",
                 new String[]{username, circuitName});
         db.close();
 
@@ -164,38 +160,38 @@ public class InputToDB {
     }
 
     /**
-     * Load inputs from database for a specific circuit
+     * Load ICs from database for a specific circuit
      */
-    public List<InputData> loadInputsForCircuit(String username, String circuitName) {
-        return getInputsForCircuit(username, circuitName);
+    public List<ICData> loadICsForCircuit(String username, String circuitName) {
+        return getICsForCircuit(username, circuitName);
     }
 
     /**
-     * Save current circuit inputs to database
+     * Save current circuit ICs to database
      */
-    public boolean syncInputsForCircuit(String username, String circuitName, List<InputData> currentInputs) {
+    public boolean syncICsForCircuit(String username, String circuitName, List<ICData> currentICs) {
         SQLiteDatabase db = dbHelper.getWritableDatabase();
         db.beginTransaction();
 
         try {
-            // Clear existing inputs for this circuit
-            db.delete("inputs", "username = ? AND circuit_name = ?",
+            // Clear existing ICs for this circuit
+            db.delete("ics", "username = ? AND circuit_name = ?",
                     new String[]{username, circuitName});
 
-            // Insert current inputs
+            // Insert current ICs
             ContentValues values = new ContentValues();
-            for (InputData input : currentInputs) {
+            for (ICData ic : currentICs) {
                 values.clear();
-                values.put("name", input.name);
+                values.put("ic_type", ic.ic_type);
                 values.put("username", username);
                 values.put("circuit_name", circuitName);
-                values.put("section", input.section);
-                values.put("row_pos", input.row_pos);
-                values.put("column_pos", input.column_pos);
+                values.put("section", ic.section);
+                values.put("row_pos", ic.row_pos);
+                values.put("column_pos", ic.column_pos);
 
-                long result = db.insert("inputs", null, values);
+                long result = db.insert("ics", null, values);
                 if (result == -1) {
-                    throw new Exception("Failed to insert input: " + input.name);
+                    throw new Exception("Failed to insert IC: " + ic.ic_type);
                 }
             }
 

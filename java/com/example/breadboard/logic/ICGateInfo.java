@@ -7,8 +7,8 @@ import com.example.breadboard.model.Coordinate;
 public class ICGateInfo {
     public String type;
     public Coordinate position;
-    Button button;
-    ICGate gateLogic; // Reference to your actual ICGate implementation
+    public Button button;
+    public ICGate gateLogic; // Reference to your actual ICGate implementation
 
     public ICGateInfo(String type, Coordinate position, Button button, ICGate gateLogic) {
         this.type = type;

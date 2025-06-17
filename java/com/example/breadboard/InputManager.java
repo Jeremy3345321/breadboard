@@ -34,6 +34,9 @@ public class InputManager {
     private String currentUsername;
     private String currentCircuitName;
 
+    private String previousUsername = null;
+    private String previousCircuitName = null;
+    private boolean forceNextClear = false;
 
     public static class InputInfo {
         public String name;
@@ -59,7 +62,6 @@ public class InputManager {
         this.inputDisplayContainer = inputDisplayContainer;
         this.currentUsername = username;
         this.currentCircuitName = circuitName;
-
         this.inputToDB = new InputToDB(mainActivity);
     }
 
@@ -139,35 +141,33 @@ public class InputManager {
             System.out.println("Input " + name + " saved to database successfully for circuit " + currentCircuitName);
         }
 
-        // Create and display the input name label
         createInputLabel(coord, name);
 
-        // Update the input display
         updateInputDisplay();
 
         showToast("Input '" + name + "' created successfully!");
-        System.out.println("Input " + name + " created for circuit " + currentCircuitName);
+        //System.out.println("Input " + name + " created for circuit " + currentCircuitName);
     }
 
     public void updateInputDisplay() {
-        System.out.println("=== updateInputDisplay START ===");
-        System.out.println("Current context - Username: " + currentUsername + ", Circuit: " + currentCircuitName);
-        System.out.println("inputs.size(): " + inputs.size());
-        System.out.println("inputNames.size(): " + inputNames.size());
-        System.out.println("inputDisplayContainer null check: " + (inputDisplayContainer == null ? "NULL" : "NOT NULL"));
+//        System.out.println("=== updateInputDisplay START ===");
+//        System.out.println("Current context - Username: " + currentUsername + ", Circuit: " + currentCircuitName);
+//        System.out.println("inputs.size(): " + inputs.size());
+//        System.out.println("inputNames.size(): " + inputNames.size());
+//        System.out.println("inputDisplayContainer null check: " + (inputDisplayContainer == null ? "NULL" : "NOT NULL"));
 
-        // ADDED: Debug container properties
-        if (inputDisplayContainer != null) {
-            System.out.println("Container visibility: " + inputDisplayContainer.getVisibility());
-            System.out.println("Container dimensions: " + inputDisplayContainer.getWidth() + "x" + inputDisplayContainer.getHeight());
-            System.out.println("Container parent: " + (inputDisplayContainer.getParent() != null ? inputDisplayContainer.getParent().getClass().getSimpleName() : "null"));
-        }
+
+//        if (inputDisplayContainer != null) {
+//            System.out.println("Container visibility: " + inputDisplayContainer.getVisibility());
+//            System.out.println("Container dimensions: " + inputDisplayContainer.getWidth() + "x" + inputDisplayContainer.getHeight());
+//            System.out.println("Container parent: " + (inputDisplayContainer.getParent() != null ? inputDisplayContainer.getParent().getClass().getSimpleName() : "null"));
+//        }
 
         // Clear existing display
         if (inputDisplayContainer != null) {
             int childCountBefore = inputDisplayContainer.getChildCount();
             inputDisplayContainer.removeAllViews();
-            System.out.println("Cleared " + childCountBefore + " existing views from inputDisplayContainer");
+            //System.out.println("Cleared " + childCountBefore + " existing views from inputDisplayContainer");
         } else {
             System.err.println("ERROR: inputDisplayContainer is null!");
             return;
@@ -176,10 +176,10 @@ public class InputManager {
         // Add each input to the display with context validation
         int buttonsCreated = 0;
         for (Coordinate coord : inputs) {
-            System.out.println("Processing coordinate: " + coord);
+            //System.out.println("Processing coordinate: " + coord);
             InputInfo info = getInputInfo(coord);
             if (info != null) {
-                System.out.println("Creating display button for input: " + info.name + " (value: " + info.value + ") at " + coord);
+                //System.out.println("Creating display button for input: " + info.name + " (value: " + info.value + ") at " + coord);
 
                 createInputDisplayButton(coord, info);
                 buttonsCreated++;
@@ -188,24 +188,19 @@ public class InputManager {
             }
         }
 
-        System.out.println("Created " + buttonsCreated + " input display buttons");
+        //System.out.println("Created " + buttonsCreated + " input display buttons");
 
-        // ADDED: Force layout update on the container with delay to allow for proper rendering
         if (inputDisplayContainer != null) {
             inputDisplayContainer.requestLayout();
-
-            // Post a runnable to ensure layout completion
             inputDisplayContainer.post(() -> {
                 inputDisplayContainer.invalidate();
 
-                // ADDED: Also update parent layouts
                 if (inputDisplayContainer.getParent() instanceof View) {
                     ((View) inputDisplayContainer.getParent()).requestLayout();
                 }
 
-                // ADDED: Debug final dimensions
-                System.out.println("Final container dimensions: " + inputDisplayContainer.getWidth() + "x" + inputDisplayContainer.getHeight());
-                System.out.println("Final container child count: " + inputDisplayContainer.getChildCount());
+                //System.out.println("Final container dimensions: " + inputDisplayContainer.getWidth() + "x" + inputDisplayContainer.getHeight());
+                //System.out.println("Final container child count: " + inputDisplayContainer.getChildCount());
             });
         }
         System.out.println("=== updateInputDisplay END ===");
@@ -405,14 +400,22 @@ public class InputManager {
         try {
             System.out.println("=== LOADING INPUTS FROM DATABASE START ===");
             System.out.println("Loading for Username: " + currentUsername + ", Circuit: " + currentCircuitName);
+            System.out.println("Previous context: " + getPreviousCircuitContext());
 
             List<InputData> dbInputs = inputToDB.loadInputsForCircuit(currentUsername, currentCircuitName);
             System.out.println("Database returned " + dbInputs.size() + " inputs");
 
+            // Ensure we start with clean state
+            if (!inputs.isEmpty() || !inputNames.isEmpty()) {
+                System.out.println("Warning: Loading inputs but memory isn't clean. Clearing first.");
+                clearInMemoryInputData();
+            }
+
             for (InputData inputData : dbInputs) {
                 // Additional safety check: only load inputs that match the current circuit name and username
                 if (!inputData.circuitName.equals(currentCircuitName) || !inputData.username.equals(currentUsername)) {
-                    System.out.println("Skipping input " + inputData.name + " - belongs to different circuit/user: " + inputData.circuitName + "/" + inputData.username);
+                    System.out.println("Skipping input " + inputData.name + " - belongs to different circuit/user: " +
+                            inputData.circuitName + "/" + inputData.username);
                     continue; // Skip this input as it doesn't belong to the current circuit or user
                 }
 
@@ -436,21 +439,23 @@ public class InputManager {
                 mainActivity.resizeSpecialPin(coord, R.drawable.breadboard_inpt);
                 createInputLabel(coord, inputData.name);
 
-                System.out.println("Loaded input " + inputData.name + " from database at " + coord + " for circuit " + currentCircuitName + " with default LOW value");
+                System.out.println("Loaded input " + inputData.name + " from database at " + coord +
+                        " for circuit " + currentCircuitName + " with default LOW value");
             }
 
-            System.out.println("Final inputs list size: " + inputs.size());
-            System.out.println("Final inputNames map size: " + inputNames.size());
+            //System.out.println("Final inputs list size: " + inputs.size());
+            //System.out.println("Final inputNames map size: " + inputNames.size());
 
             // Update display immediately after loading all inputs
             updateInputDisplay();
 
-            // ADDED: Ensure display sync after a delay to handle context switching
+            // Ensure display sync after a delay to handle context switching
             inputDisplayContainer.postDelayed(() -> {
                 ensureInputDisplaySync();
             }, 100);
 
-            System.out.println("Loaded " + dbInputs.size() + " inputs from database for circuit " + currentCircuitName + " - all with default LOW values");
+            System.out.println("Loaded " + dbInputs.size() + " inputs from database for circuit " +
+                    currentCircuitName + " - all with default LOW values");
             System.out.println("=== LOADING INPUTS FROM DATABASE END ===");
 
         } catch (Exception e) {
@@ -510,33 +515,54 @@ public class InputManager {
     }
 
     public void updateCircuitContext(String username, String circuitName) {
-        System.out.println("InputManager: Updating circuit context from [" + currentUsername + ", " + currentCircuitName +
-                "] to [" + username + ", " + circuitName + "]");
+        //System.out.println("InputManager: Updating circuit context from [" + currentUsername + ", " + currentCircuitName +
+        //        "] to [" + username + ", " + circuitName + "]");
 
-        // CHANGED: Only clear if we're actually switching to a different circuit
+        // Enhanced logic to detect when we need to clear data
         boolean isActualSwitch = !username.equals(currentUsername) || !circuitName.equals(currentCircuitName);
+        boolean isReturningToDifferentCircuit = (previousUsername != null && previousCircuitName != null) &&
+                (!username.equals(previousUsername) || !circuitName.equals(previousCircuitName));
+        boolean shouldClearData = isActualSwitch || forceNextClear || isReturningToDifferentCircuit;
 
-        if (isActualSwitch) {
+        //System.out.println("Context switch analysis:");
+        //System.out.println("- isActualSwitch: " + isActualSwitch);
+        //System.out.println("- isReturningToDifferentCircuit: " + isReturningToDifferentCircuit);
+        //System.out.println("- forceNextClear: " + forceNextClear);
+        //System.out.println("- shouldClearData: " + shouldClearData);
+
+        if (shouldClearData) {
+            // Store previous context before clearing
+            previousUsername = currentUsername;
+            previousCircuitName = currentCircuitName;
+
             // Clear all in-memory data before switching context
             clearInMemoryInputData();
             clearInputVisuals();
 
-            System.out.println("Cleared data for actual circuit switch");
+            //System.out.println("Cleared data for circuit context change");
+
+            // Reset the force clear flag
+            forceNextClear = false;
         } else {
-            System.out.println("No actual circuit switch detected - skipping data clear");
+            //System.out.println("No data clearing needed for this context update");
         }
 
         // Update context
         this.currentUsername = username;
         this.currentCircuitName = circuitName;
 
-        System.out.println("InputManager context updated successfully - Username: " + username + ", Circuit: " + circuitName);
+        //System.out.println("InputManager context updated successfully - Username: " + username + ", Circuit: " + circuitName);
 
-        // ADDED: If this was not an actual switch, ensure display is updated
-        if (!isActualSwitch && inputDisplayContainer != null && inputDisplayContainer.getChildCount() == 0 && !inputs.isEmpty()) {
-            System.out.println("Recreating input display after context refresh");
+        // If display container is empty but we have inputs, rebuild the display
+        if (inputDisplayContainer != null && inputDisplayContainer.getChildCount() == 0 && !inputs.isEmpty()) {
+            //System.out.println("Recreating input display after context refresh");
             updateInputDisplay();
         }
+    }
+
+    public void markForForceClear() {
+        System.out.println("InputManager: Marking for forced clear on next context update");
+        forceNextClear = true;
     }
 
     public String getCurrentCircuitName() {
@@ -563,50 +589,19 @@ public class InputManager {
         return inputNames.get(coord);
     }
 
-    public String getInputName(Coordinate coord) {
-        InputInfo info = inputNames.get(coord);
-        return info != null ? info.name : null;
-    }
-
     private void showToast(String message) {
         Toast.makeText(mainActivity, message, Toast.LENGTH_SHORT).show();
     }
 
-    public void debugDatabase() {
-        System.out.println("=== DATABASE DEBUG ===");
-
-        // Check what tables exist
-        if (inputToDB != null) {
-            DBHelper dbHelper = new DBHelper(mainActivity);
-            dbHelper.checkTables(); // This calls the new method in DBHelper
-
-            // Try to get a database connection
-            try {
-                android.database.sqlite.SQLiteDatabase db = dbHelper.getReadableDatabase();
-                System.out.println("Database connection successful");
-
-                // Check specifically for inputs table
-                android.database.Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table' AND name='inputs'", null);
-                if (cursor.moveToFirst()) {
-                    System.out.println("inputs table EXISTS in database");
-                } else {
-                    System.out.println("inputs table DOES NOT EXIST in database");
-                }
-                cursor.close();
-                db.close();
-
-            } catch (Exception e) {
-                System.err.println("Database error: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-
-        System.out.println("=== END DEBUG ===");
-    }
-
     // Clear all in-memory input data
     public void clearInMemoryInputData() {
-        System.out.println("Clearing in-memory input data for context switch");
+        System.out.println("=== CLEARING IN-MEMORY INPUT DATA START ===");
+        System.out.println("Before clearing:");
+        System.out.println("- inputs.size(): " + inputs.size());
+        System.out.println("- inputNames.size(): " + inputNames.size());
+        System.out.println("- inputLabels.size(): " + inputLabels.size());
+        System.out.println("- inputDisplayContainer child count: " +
+                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
 
         // Clear the input coordinate list
         inputs.clear();
@@ -620,9 +615,25 @@ public class InputManager {
         // Clear the input display container
         if (inputDisplayContainer != null) {
             inputDisplayContainer.removeAllViews();
+            // Force layout update
+            inputDisplayContainer.requestLayout();
+            inputDisplayContainer.invalidate();
         }
 
+        System.out.println("After clearing:");
+        System.out.println("- inputs.size(): " + inputs.size());
+        System.out.println("- inputNames.size(): " + inputNames.size());
+        System.out.println("- inputLabels.size(): " + inputLabels.size());
+        System.out.println("- inputDisplayContainer child count: " +
+                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
+
         System.out.println("In-memory input data cleared successfully");
+        System.out.println("=== CLEARING IN-MEMORY INPUT DATA END ===");
+    }
+
+    public String getPreviousCircuitContext() {
+        return (previousUsername != null && previousCircuitName != null) ?
+                previousUsername + "/" + previousCircuitName : "none";
     }
 
     public void clearInputVisuals() {
