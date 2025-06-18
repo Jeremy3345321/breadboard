@@ -17,4 +17,6 @@ public class ICGateInfo {
         this.button = button;
         this.gateLogic = gateLogic;
     }
+
+
 }

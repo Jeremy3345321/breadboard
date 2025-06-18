@@ -16,6 +16,11 @@ public abstract class ICGate {
         this.button = button;
     }
 
+    public Coordinate getCoordinate() {
+        return position;
+    }
+
+
     public abstract void init();
     public abstract int execute(int[] inputs);
 }

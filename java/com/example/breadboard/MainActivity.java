@@ -280,7 +280,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         if (icSetup != null) {
             icSetup.loadAllICsFromDatabase();
             icSetup.updateCircuitContext(currentUsername, currentCircuitName);
-            icSetup.initializeBreadboardParent();
         }
     }
 

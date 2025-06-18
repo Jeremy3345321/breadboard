@@ -14,6 +14,8 @@ public class ICToDB {
     private DBHelper dbHelper;
     private Context context;
 
+    private Coordinate savedICs;
+
     public ICToDB(Context context) {
         this.context = context;
         this.dbHelper = new DBHelper(context);
@@ -36,7 +38,6 @@ public class ICToDB {
             this.section = section;
             this.row_pos = row;
             this.column_pos = column;
-
         }
 
         public ICData(String icType, String username, String circuitName, int section, int row, int column) {
