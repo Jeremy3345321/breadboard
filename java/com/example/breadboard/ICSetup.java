@@ -691,6 +691,7 @@ public class ICSetup {
         System.out.println("Successfully removed IC of type " + icToRemove.type + " at " + icToRemove.position);
 
         debugICGateObjects();
+        mainActivity.ICnum -=1;
     }
 
     // Helper method to check if a coordinate falls within an IC's pin range
@@ -1003,31 +1004,6 @@ public class ICSetup {
         this.currentCircuitName = circuitName;
 
         System.out.println("ICSetup context updated successfully - Username: " + username + ", Circuit: " + circuitName);
-    }
-    public void debugViewHierarchy(Coordinate coord) {
-        System.out.println("=== DEBUG VIEW HIERARCHY ===");
-        System.out.println("Looking for IC at coordinate: " + coord);
-        System.out.println("icGateObjects size: " + icGateObjects.size());
-        System.out.println("icGates size: " + icGates.size());
-
-        // Check if IC still exists in memory
-        for (ICGateInfo icInfo : icGateObjects) {
-            if (icInfo.position.equals(coord)) {
-                System.out.println("FOUND IC STILL IN MEMORY: " + icInfo.type + " at " + icInfo.position);
-                if (icInfo.button != null) {
-                    System.out.println("Button still exists, parent: " + icInfo.button.getParent());
-                    System.out.println("Button visibility: " + icInfo.button.getVisibility());
-                }
-            }
-        }
-
-        // Check parent container
-        RelativeLayout parentLayout = (RelativeLayout) icContainer.getParent();
-        if (parentLayout != null) {
-            System.out.println("Parent layout child count: " + parentLayout.getChildCount());
-        }
-        System.out.println("icContainer child count: " + icContainer.getChildCount());
-        System.out.println("=== END DEBUG ===");
     }
 
     public void initializeBreadboardParent() {
