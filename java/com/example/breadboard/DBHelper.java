@@ -148,6 +148,29 @@ public class DBHelper extends SQLiteOpenHelper {
         System.out.println("Database upgrade completed");
     }
 
+    public Boolean updatePassword(String username, String password) {
+        SQLiteDatabase db = null;
+        try {
+            db = this.getWritableDatabase();
+            ContentValues contentValues = new ContentValues();
+            contentValues.put("password", password);
+            int rowsAffected = db.update("users", contentValues, "username = ?", new String[]{username});
+            return rowsAffected > 0;
+        } catch (Exception e) {
+            System.err.println("Error updating password for user " + username + ": " + e.getMessage());
+            return false;
+        } finally {
+            if (db != null) {
+                try {
+                    db.close();
+                } catch (Exception e) {
+                    System.err.println("Error closing database: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+
     // Method to manually check if tables exist (for debugging)
     public void checkTables() {
         SQLiteDatabase db = this.getReadableDatabase();

@@ -54,8 +54,8 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
     private Map<Coordinate, TextView> inputLabels = new HashMap<>();
-    String currentUsername = "defaultUser"; // You'll need to get this from login/session
-    String currentCircuitName = "defaultCircuit"; // You'll need to get this from circuit selection
+    String currentUsername;
+    String currentCircuitName;
 
     Button executeButton;
 
@@ -96,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     }
 
     private void initializeComponents() {
-        // Get circuit context first before intializing other components.
+        // Get circuit context first before initializing other components.
         getCurrentCircuitContext();
 
         //  Initializing UI Elements
@@ -122,14 +122,15 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // Initialize ICSetup
         icSetup = new ICSetup(this, icContainer, pinAttributes, icGates, gates,
                 inputs, outputs, vccPins, gndPins, icGateObjects, addConnection);
+
         // Initialize ICPinManager
         icPinManager = new ICPinManager(this, pinAttributes, vccPins, gndPins, inputs);
 
-        // Initialize InputManager (without loading from database yet)
+        // Initialize InputManager - pass the current context directly
         inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs,
                 inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
 
-        // Intialize OutputManager
+        // Initialize OutputManager - pass the current context directly
         outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager, currentUsername,
                 currentCircuitName);
 
@@ -141,6 +142,10 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
                 inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
 
+        // IMPORTANT: Load data from database AFTER all managers are initialized
+        // This ensures the context is properly set and no data gets cleared during initialization
+        loadAllDataFromDatabase();
+
         debugDatabase();
 
         Button executeButton = findViewById(R.id.btnExecute);
@@ -148,6 +153,37 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
 
         Button clearButton = findViewById(R.id.btnClear);
         clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
+    }
+
+    /**
+     * Load all component data from database after initialization
+     */
+    private void loadAllDataFromDatabase() {
+        System.out.println("=== LOADING ALL DATA FROM DATABASE ===");
+
+        icSetup.setLoadingFromDatabase(true);
+        getCurrentCircuitContext();
+
+        // Load in the correct order to maintain dependencies
+        if (icSetup != null) {
+            icSetup.loadAllICsFromDatabase();
+        }
+
+        if (inputManager != null) {
+            inputManager.loadInputsFromDatabase();
+        }
+
+        if (outputManager != null) {
+            outputManager.loadOutputsFromDatabase();
+        }
+
+        icSetup.setLoadingFromDatabase(false);
+        icSetup.updateCircuitContext(currentUsername, currentCircuitName);
+
+        // Load connections last as they depend on other components
+        // Add your connection loading here if you have it
+
+        System.out.println("=== FINISHED LOADING ALL DATA FROM DATABASE ===");
     }
 
     private void debugDatabase() {
@@ -244,6 +280,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         if (icSetup != null) {
             icSetup.loadAllICsFromDatabase();
             icSetup.updateCircuitContext(currentUsername, currentCircuitName);
+            icSetup.initializeBreadboardParent();
         }
     }
 
@@ -391,6 +428,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             // Clear database for current circuit (uses inputManager's internal context)
             inputManager.clearInputsFromDatabase();
             outputManager.clearOutputsFromDatabase();
+            icSetup.removeIC();
 
             // Clear current circuit state
             clearCircuitState();
@@ -491,13 +529,14 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
     }
 
+    @Override
     protected void onResume() {
         super.onResume();
 
         // Refresh circuit context when returning to activity
         getCurrentCircuitContext();
 
-        // Update InputManager with current context
+        // Update all managers with current context
         if (inputManager != null) {
             inputManager.updateCircuitContext(currentUsername, currentCircuitName);
         }
@@ -506,6 +545,9 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
         if (icSetup != null) {
             icSetup.updateCircuitContext(currentUsername, currentCircuitName);
+            // Only load if we haven't already loaded from initializeComponents()
+            // The loadAllICsFromDatabase() method now has its own duplicate prevention
+            icSetup.loadAllICsFromDatabase();
         }
 
         System.out.println("MainActivity onResume - Context refreshed: " + currentUsername + " / " + currentCircuitName);

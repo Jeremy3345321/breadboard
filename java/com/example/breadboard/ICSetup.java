@@ -2,6 +2,9 @@ package com.example.breadboard;
 
 import android.app.AlertDialog;
 import android.graphics.Color;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewParent;
 import android.widget.Button;
 import android.widget.RelativeLayout;
 import android.widget.Toast;
@@ -34,13 +37,19 @@ public class ICSetup {
     private List<Coordinate> gndPins;
     private List<ICGateInfo> icGateObjects;
     private ICToDB icToDB;
+    private RelativeLayout breadboardParentLayout;
     private static boolean canDisplay = false;
 
     private String currentUsername;
     private String currentCircuitName;
     private String previousUsername;
     private String previousCircuitName;
+    private boolean isInitialized = false;
     private boolean forceNextClear = false;
+    private boolean isLoadingFromDatabase = false;
+
+    private boolean isCurrentlyLoading = false;
+    private boolean hasLoadedForCurrentContext = false;
 
     // Constants
     private static final int ROWS = 5;
@@ -76,6 +85,8 @@ public class ICSetup {
                 })
                 .show();
     }
+
+
 
     public void loadICGate(String icType, Coordinate coord) {
         Button icButton = new Button(mainActivity);
@@ -117,21 +128,34 @@ public class ICSetup {
             return; // Don't continue if gate creation failed
         }
 
+        if (breadboardParentLayout == null) {
+            breadboardParentLayout = (RelativeLayout) icContainer.getParent();
+        }
+        breadboardParentLayout.addView(icButton);
+        System.out.println("Added IC button to stored parent layout");
+
         // Create ICGateInfo object for UI management
         ICGateInfo icGateInfo = new ICGateInfo(icType, coord, icButton, gateLogic);
         icGateObjects.add(icGateInfo);
 
+        System.out.println("=== LOADED IC DEBUG INFO ===");
+        System.out.println("Loaded IC Type: " + icType);
+        System.out.println("Loaded IC Coordinate: " + coord);
+        System.out.println("Coordinate details - s:" + coord.s + ", r:" + coord.r + ", c:" + coord.c);
+        System.out.println("Total ICs in memory after loading: " + icGateObjects.size());
+        System.out.println("============================");
+
+
         // Modified click listener to show IC details
         icButton.setOnClickListener(v -> showICConnectionDialog(icGateInfo));
-
-        // Add to the RelativeLayout parent instead of icContainer
-        RelativeLayout parentLayout = (RelativeLayout) icContainer.getParent();
-        parentLayout.addView(icButton);
 
         icGates.add(icButton);
 
         // Mark IC pins as occupied
         markICPins(coord, icType);
+
+        // ✅ ADDED: Log the loaded IC for debugging
+        System.out.println("Loaded IC " + icType + " at coordinate " + coord + " from database");
 
         int addedPadding = 0;
         if (mainActivity.extraPadding != 0) {
@@ -162,7 +186,6 @@ public class ICSetup {
             mainActivity.contMargin = -103;
             mainActivity.ICnum += 1;
         }
-
     }
 
     public void addICGate(Coordinate coord, String icType) {
@@ -205,16 +228,18 @@ public class ICSetup {
             return; // Don't continue if gate creation failed
         }
 
+        if (breadboardParentLayout == null) {
+            breadboardParentLayout = (RelativeLayout) icContainer.getParent();
+        }
+        breadboardParentLayout.addView(icButton);
+        System.out.println("Added IC button to stored parent layout");
+
         // Create ICGateInfo object for UI management
         ICGateInfo icGateInfo = new ICGateInfo(icType, coord, icButton, gateLogic);
         icGateObjects.add(icGateInfo);
 
         // Modified click listener to show IC details
         icButton.setOnClickListener(v -> showICConnectionDialog(icGateInfo));
-
-        // Add to the RelativeLayout parent instead of icContainer
-        RelativeLayout parentLayout = (RelativeLayout) icContainer.getParent();
-        parentLayout.addView(icButton);
 
         icGates.add(icButton);
 
@@ -566,20 +591,52 @@ public class ICSetup {
 
     }
 
+    public void debugICGateObjects() {
+        System.out.println("=== DEBUG: All ICs in icGateObjects ===");
+        System.out.println("Total count: " + icGateObjects.size());
+        for (int i = 0; i < icGateObjects.size(); i++) {
+            ICGateInfo icInfo = icGateObjects.get(i);
+            System.out.println(i + ". " + icInfo.type + " at {" +
+                    icInfo.position.s + ", " + icInfo.position.r + ", " + icInfo.position.c + "}");
+        }
+        System.out.println("=====================================");
+    }
+
     public void removeICByCoord(Coordinate coord) {
         System.out.println("Attempting to remove IC at coordinate: " + coord);
+
+        System.out.println("=== REMOVE IC DEBUG INFO ===");
+        System.out.println("Attempting to remove IC at coordinate: " + coord);
+        System.out.println("Looking for - s:" + coord.s + ", r:" + coord.r + ", c:" + coord.c);
+        System.out.println("Total ICs in memory: " + icGateObjects.size());
 
         // Find the IC at the specified coordinate
         ICGateInfo icToRemove = null;
         for (ICGateInfo icInfo : icGateObjects) {
-            if (icInfo.position.equals(coord)) {
+            System.out.println("Checking IC: " + icInfo.type +
+                    " at s:" + icInfo.position.s +
+                    ", r:" + icInfo.position.r +
+                    ", c:" + icInfo.position.c);
+
+            // FIXED: Check if the coordinate is within the IC's pin range
+            if (isCoordinateWithinIC(coord, icInfo.position)) {
                 icToRemove = icInfo;
+                System.out.println("✅ MATCH FOUND! IC spans from column " + icInfo.position.c +
+                        " to " + (icInfo.position.c + 6));
                 break;
             }
         }
+        System.out.println("============================");
 
         if (icToRemove == null) {
-            System.err.println("No IC found at coordinate: " + coord);
+            System.err.println("❌ No IC found at coordinate: " + coord);
+            // Enhanced debug info
+            System.err.println("Available ICs in memory:");
+            for (ICGateInfo icInfo : icGateObjects) {
+                System.err.println("  - " + icInfo.type + " at coords {" +
+                        icInfo.position.s + ", " + icInfo.position.r + ", " + icInfo.position.c +
+                        "} spans columns " + icInfo.position.c + "-" + (icInfo.position.c + 6));
+            }
             return;
         }
 
@@ -587,41 +644,69 @@ public class ICSetup {
         icGateObjects.remove(icToRemove);
         if (icToRemove.button != null) {
             icGates.remove(icToRemove.button);
-            System.out.println("Removed IC button from list");
+            System.out.println("Removed IC button from icGates list");
         }
         if (icToRemove.gateLogic != null) {
             gates.remove(icToRemove.gateLogic);
-            System.out.println("Removed IC gate logic from list");
+            mainActivity.ICnum -= 1;
+            System.out.println("Removed IC gate logic from gates list");
         }
 
-        // FIX: Remove visual element from the correct parent container
+        // Remove the visual button using the stored parent reference
         if (icToRemove.button != null) {
-            // Remove from the same parent where it was added
-            RelativeLayout parentLayout = (RelativeLayout) icContainer.getParent();
-            if (parentLayout != null) {
-                parentLayout.removeView(icToRemove.button);
-                System.out.println("Removed IC button from parent layout");
-            } else {
-                // Fallback: try removing from icContainer
-                icContainer.removeView(icToRemove.button);
-                System.out.println("Removed IC button from icContainer (fallback)");
+            try {
+                // Ensure we have the parent reference
+                if (breadboardParentLayout == null) {
+                    breadboardParentLayout = (RelativeLayout) icContainer.getParent();
+                }
+
+                if (breadboardParentLayout != null) {
+                    breadboardParentLayout.removeView(icToRemove.button);
+                    System.out.println("Removed button from stored breadboard parent layout");
+
+                    // Force UI refresh
+                    breadboardParentLayout.invalidate();
+                    breadboardParentLayout.requestLayout();
+                } else {
+                    System.err.println("Breadboard parent layout is null!");
+                }
+
+            } catch (Exception e) {
+                System.err.println("Error removing button: " + e.getMessage());
+                e.printStackTrace();
             }
         }
 
         // Reset pin attributes for this IC position
-        resetICPinAttributes(coord);
+        resetICPinAttributes(icToRemove.position); // Use the actual IC position
 
-        // Remove from database
-        boolean dbResult = icToDB.deleteICByCoordinate(currentUsername, currentCircuitName, coord);
+        // FIXED: Remove from database using the actual IC position, not the clicked coordinate
+        boolean dbResult = icToDB.deleteICByCoordinate(currentUsername, currentCircuitName, icToRemove.position);
         if (!dbResult) {
-            System.err.println("Failed to remove IC from database at " + coord + " for circuit " + currentCircuitName);
+            System.err.println("Failed to remove IC from database at " + icToRemove.position + " for circuit " + currentCircuitName);
         } else {
-            System.out.println("Removed IC from database at " + coord + " for circuit " + currentCircuitName);
+            System.out.println("Removed IC from database at " + icToRemove.position + " for circuit " + currentCircuitName);
         }
 
+        System.out.println("Successfully removed IC of type " + icToRemove.type + " at " + icToRemove.position);
 
-        System.out.println("Successfully removed IC of type " + icToRemove.type + " at " + coord);
-        debugViewHierarchy(coord);
+        debugICGateObjects();
+    }
+
+    // Helper method to check if a coordinate falls within an IC's pin range
+    private boolean isCoordinateWithinIC(Coordinate clickedCoord, Coordinate icBasePosition) {
+        // An IC spans 7 columns starting from its base position
+        int icStartCol = icBasePosition.c;
+        int icEndCol = icBasePosition.c + 6;
+
+        // Check if the clicked coordinate is within the IC's column range
+        boolean withinColumnRange = clickedCoord.c >= icStartCol && clickedCoord.c <= icEndCol;
+
+        // Check if it's on the correct rows (top row: section 0, row 4 or bottom row: section 1, row 0)
+        boolean onTopRow = (clickedCoord.s == 0 && clickedCoord.r == 4);
+        boolean onBottomRow = (clickedCoord.s == 1 && clickedCoord.r == 0);
+
+        return withinColumnRange && (onTopRow || onBottomRow);
     }
 
     private String[] getICPinConnections(ICGateInfo icGate) {
@@ -696,11 +781,40 @@ public class ICSetup {
     }
 
     public void loadAllICsFromDatabase() {
-        List<ICToDB.ICData> savedICs = icToDB.getICsForCircuit(
-                mainActivity.currentUsername, mainActivity.currentCircuitName);
+        // Prevent multiple simultaneous loads
+        if (isCurrentlyLoading) {
+            System.out.println("ICSetup: Already loading ICs, skipping duplicate load request");
+            return;
+        }
 
-        for (ICToDB.ICData icData : savedICs) {
-            loadICGate(icData.ic_type, icData.getCoordinate());
+        // Check if we've already loaded for this context
+        if (hasLoadedForCurrentContext) {
+            System.out.println("ICSetup: Already loaded ICs for current context, skipping");
+            return;
+        }
+
+        isCurrentlyLoading = true;
+        System.out.println("=== LOADING ICs FROM DATABASE START ===");
+        System.out.println("Loading ICs for: " + currentUsername + " / " + currentCircuitName);
+
+        try {
+            List<ICToDB.ICData> savedICs = icToDB.getICsForCircuit(currentUsername, currentCircuitName);
+            System.out.println("Found " + savedICs.size() + " ICs in database");
+
+            for (ICToDB.ICData icData : savedICs) {
+                System.out.println("Loading IC: " + icData.ic_type + " at " + icData.getCoordinate());
+                loadICGate(icData.ic_type, icData.getCoordinate());
+            }
+
+            hasLoadedForCurrentContext = true;
+            System.out.println("Successfully loaded " + savedICs.size() + " ICs from database");
+
+        } catch (Exception e) {
+            System.err.println("Error loading ICs from database: " + e.getMessage());
+            e.printStackTrace();
+        } finally {
+            isCurrentlyLoading = false;
+            System.out.println("=== LOADING ICs FROM DATABASE END ===");
         }
     }
 
@@ -713,22 +827,62 @@ public class ICSetup {
     }
 
     private void clearInMemoryICData() {
+        System.out.println("=== CLEARING IN-MEMORY IC DATA START ===");
+        System.out.println("Before clearing:");
+        System.out.println("- icGateObjects.size(): " + icGateObjects.size());
+        System.out.println("- icGates.size(): " + icGates.size());
+        System.out.println("- gates.size(): " + gates.size());
+
+        // Print current ICs before clearing
+        for (ICGateInfo icInfo : icGateObjects) {
+            System.out.println("  - IC: " + icInfo.type + " at " + icInfo.position);
+        }
+
         icGateObjects.clear();
         icGates.clear();
         gates.clear();
         System.out.println("Cleared all in-memory IC data");
+
+        System.out.println("After clearing:");
+        System.out.println("- icGateObjects.size(): " + icGateObjects.size());
+        System.out.println("- icGates.size(): " + icGates.size());
+        System.out.println("- gates.size(): " + gates.size());
+        System.out.println("=== CLEARING IN-MEMORY IC DATA END ===");
     }
 
     private void clearICVisuals() {
-        // Remove all IC images from the breadboard
-        icContainer.removeAllViews();
+        System.out.println("=== CLEARING IC VISUALS START ===");
 
-        // Reset pin attributes for all IC positions
+        // Remove all IC buttons from the parent layout, not just icContainer
+        if (breadboardParentLayout == null) {
+            breadboardParentLayout = (RelativeLayout) icContainer.getParent();
+        }
+
+        // Remove each IC button individually from the parent layout
         for (ICGateInfo icInfo : new ArrayList<>(icGateObjects)) {
+            if (icInfo.button != null && breadboardParentLayout != null) {
+                try {
+                    breadboardParentLayout.removeView(icInfo.button);
+                    System.out.println("Removed IC button: " + icInfo.type + " from parent layout");
+                } catch (Exception e) {
+                    System.err.println("Error removing IC button: " + e.getMessage());
+                }
+            }
+            // Reset pin attributes for this IC
             resetICPinAttributes(icInfo.position);
         }
 
+        // Also clear the icContainer as a safety measure
+        icContainer.removeAllViews();
+
+        // Force UI refresh
+        if (breadboardParentLayout != null) {
+            breadboardParentLayout.invalidate();
+            breadboardParentLayout.requestLayout();
+        }
+
         System.out.println("Cleared all IC visuals from breadboard");
+        System.out.println("=== CLEARING IC VISUALS END ===");
     }
 
     private void resetICPinAttributes(Coordinate icPosition) {
@@ -801,9 +955,23 @@ public class ICSetup {
         }
     }
 
+    public void setLoadingFromDatabase(boolean loading) {
+        this.isLoadingFromDatabase = loading;
+    }
+
     public void updateCircuitContext(String username, String circuitName) {
         System.out.println("ICSetup: Updating circuit context from [" + currentUsername + ", " + currentCircuitName +
                 "] to [" + username + ", " + circuitName + "]");
+
+        // Skip clearing on the very first context update (initialization)
+        if (!isInitialized) {
+            System.out.println("First initialization - skipping data clearing");
+            this.currentUsername = username;
+            this.currentCircuitName = circuitName;
+            this.isInitialized = true;
+            this.hasLoadedForCurrentContext = false; // Reset load flag for new context
+            return;
+        }
 
         // Enhanced logic to detect when we need to clear data
         boolean isActualSwitch = !username.equals(currentUsername) || !circuitName.equals(currentCircuitName);
@@ -820,6 +988,7 @@ public class ICSetup {
             clearInMemoryICData();
             clearICVisuals();
             mainActivity.ICnum = 0; // Reset IC counter
+            hasLoadedForCurrentContext = false; // Reset load flag when clearing
 
             System.out.println("Cleared IC data for circuit context change");
 
@@ -835,7 +1004,6 @@ public class ICSetup {
 
         System.out.println("ICSetup context updated successfully - Username: " + username + ", Circuit: " + circuitName);
     }
-
     public void debugViewHierarchy(Coordinate coord) {
         System.out.println("=== DEBUG VIEW HIERARCHY ===");
         System.out.println("Looking for IC at coordinate: " + coord);
@@ -861,4 +1029,10 @@ public class ICSetup {
         System.out.println("icContainer child count: " + icContainer.getChildCount());
         System.out.println("=== END DEBUG ===");
     }
+
+    public void initializeBreadboardParent() {
+        this.breadboardParentLayout = (RelativeLayout) icContainer.getParent();
+        System.out.println("Stored breadboard parent: " + breadboardParentLayout);
+    }
+
 }

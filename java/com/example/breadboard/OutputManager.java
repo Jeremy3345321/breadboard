@@ -505,15 +505,31 @@ public class OutputManager {
 
         // Enhanced logic to detect when we need to clear data
         boolean isActualSwitch = !username.equals(currentUsername) || !circuitName.equals(currentCircuitName);
-        boolean isReturningToDifferentCircuit = (previousUsername != null && previousCircuitName != null) &&
-                (!username.equals(previousUsername) || !circuitName.equals(previousCircuitName));
-        boolean shouldClearData = isActualSwitch || forceNextClear || isReturningToDifferentCircuit;
 
-//        System.out.println("Context switch analysis:");
-//        System.out.println("- isActualSwitch: " + isActualSwitch);
-//        System.out.println("- isReturningToDifferentCircuit: " + isReturningToDifferentCircuit);
-//        System.out.println("- forceNextClear: " + forceNextClear);
-//        System.out.println("- shouldClearData: " + shouldClearData);
+        // FIXED: Don't clear data on initial load when both current and new contexts are the same
+        boolean isInitialLoad = (currentUsername == null || currentCircuitName == null);
+        boolean isSameCircuit = username.equals(currentUsername) && circuitName.equals(currentCircuitName);
+
+        boolean shouldClearData = false;
+
+        if (forceNextClear) {
+            shouldClearData = true;
+            System.out.println("Clearing due to force flag");
+        } else if (isInitialLoad) {
+            // On initial load, don't clear if we're loading the same circuit
+            shouldClearData = false;
+            System.out.println("Initial load - not clearing data");
+        } else if (isActualSwitch) {
+            shouldClearData = true;
+            System.out.println("Clearing due to actual circuit switch");
+        }
+
+        System.out.println("Context switch analysis:");
+        System.out.println("- isActualSwitch: " + isActualSwitch);
+        System.out.println("- isInitialLoad: " + isInitialLoad);
+        System.out.println("- isSameCircuit: " + isSameCircuit);
+        System.out.println("- forceNextClear: " + forceNextClear);
+        System.out.println("- shouldClearData: " + shouldClearData);
 
         if (shouldClearData) {
             // Store previous context before clearing

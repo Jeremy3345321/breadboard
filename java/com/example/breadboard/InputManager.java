@@ -595,13 +595,13 @@ public class InputManager {
 
     // Clear all in-memory input data
     public void clearInMemoryInputData() {
-        System.out.println("=== CLEARING IN-MEMORY INPUT DATA START ===");
-        System.out.println("Before clearing:");
-        System.out.println("- inputs.size(): " + inputs.size());
-        System.out.println("- inputNames.size(): " + inputNames.size());
-        System.out.println("- inputLabels.size(): " + inputLabels.size());
-        System.out.println("- inputDisplayContainer child count: " +
-                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
+//        System.out.println("=== CLEARING IN-MEMORY INPUT DATA START ===");
+//        System.out.println("Before clearing:");
+//        System.out.println("- inputs.size(): " + inputs.size());
+//        System.out.println("- inputNames.size(): " + inputNames.size());
+//        System.out.println("- inputLabels.size(): " + inputLabels.size());
+//        System.out.println("- inputDisplayContainer child count: " +
+//                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
 
         // Clear the input coordinate list
         inputs.clear();
@@ -620,15 +620,15 @@ public class InputManager {
             inputDisplayContainer.invalidate();
         }
 
-        System.out.println("After clearing:");
-        System.out.println("- inputs.size(): " + inputs.size());
-        System.out.println("- inputNames.size(): " + inputNames.size());
-        System.out.println("- inputLabels.size(): " + inputLabels.size());
-        System.out.println("- inputDisplayContainer child count: " +
-                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
-
-        System.out.println("In-memory input data cleared successfully");
-        System.out.println("=== CLEARING IN-MEMORY INPUT DATA END ===");
+//        System.out.println("After clearing:");
+//        System.out.println("- inputs.size(): " + inputs.size());
+//        System.out.println("- inputNames.size(): " + inputNames.size());
+//        System.out.println("- inputLabels.size(): " + inputLabels.size());
+//        System.out.println("- inputDisplayContainer child count: " +
+//                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
+//
+//        System.out.println("In-memory input data cleared successfully");
+//        System.out.println("=== CLEARING IN-MEMORY INPUT DATA END ===");
     }
 
     public String getPreviousCircuitContext() {
