@@ -2,10 +2,11 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#F5F5F5"
-    tools:context=".LoginActivity">
+    tools:context=".ConfirmUser">
 
     <!-- Header Layout -->
     <RelativeLayout
@@ -31,20 +32,20 @@
             android:layout_below="@id/logo_image"
             android:layout_centerHorizontal="true"
             android:layout_marginTop="8dp"
-            android:text="Welcome Back"
+            android:text="Account Recovery"
             android:textColor="#FFFFFF"
             android:textSize="20sp"
             android:textStyle="bold" />
     </RelativeLayout>
 
-    <!-- Login Form Container -->
+    <!-- Confirm User Form Container -->
     <androidx.cardview.widget.CardView
-        android:id="@+id/login_form_container"
+        android:id="@+id/confirm_form_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_below="@id/header_layout"
         android:layout_marginStart="20dp"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="30dp"
         android:layout_marginEnd="20dp"
         app:cardCornerRadius="15dp"
         app:cardElevation="10dp">
@@ -53,27 +54,49 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="30dp">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center_horizontal"
-                android:layout_marginBottom="20dp"
-                android:text="Sign In to Circuit Connect"
+                android:layout_marginBottom="10dp"
+                android:text="Confirm Your Username"
                 android:textColor="#333333"
                 android:textSize="18sp"
                 android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="25dp"
+                android:text="Enter your username to proceed with password reset"
+                android:textColor="#666666"
+                android:textSize="14sp"
+                android:gravity="center" />
+
+            <!-- Security Icon -->
+            <ImageView
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="20dp"
+                android:src="@drawable/ic_security"
+                android:background="@drawable/circular_background_light"
+                android:padding="15dp"
+                android:scaleType="centerInside"
+                app:tint="#03A9F4" />
 
             <!-- Username Input -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="15dp"
+                android:layout_marginBottom="25dp"
                 android:orientation="horizontal">
 
                 <View
-                    android:id="@+id/connection_point_green_login"
+                    android:id="@+id/connection_point_green_confirm"
                     android:layout_width="15dp"
                     android:layout_height="15dp"
                     android:layout_gravity="center_vertical"
@@ -81,111 +104,92 @@
                     android:background="@drawable/connection_point_green" />
 
                 <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/username_layout_login"
+                    android:id="@+id/username_layout_confirm"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     app:boxStrokeColor="#03A9F4"
                     app:boxStrokeWidth="2dp"
                     app:hintTextColor="#03A9F4"
                     app:errorEnabled="true"
-                    app:helperTextEnabled="true">
+                    app:helperTextEnabled="true"
+                    app:startIconDrawable="@drawable/ic_person"
+                    app:startIconTint="#03A9F4">
 
                     <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/username_edittext_login"
+                        android:id="@+id/username_edittext_confirm"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="Username"
-                        android:inputType="text"/>
+                        android:hint="Enter your username"
+                        android:inputType="text"
+                        android:maxLines="1"
+                        android:singleLine="true" />
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
 
-            <!-- Password Input -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="15dp"
-                android:orientation="horizontal">
-
-                <View
-                    android:id="@+id/connection_point_yellow_login"
-                    android:layout_width="15dp"
-                    android:layout_height="15dp"
-                    android:layout_gravity="center_vertical"
-                    android:layout_marginEnd="10dp"
-                    android:background="@drawable/connection_point_yellow" />
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:id="@+id/password_layout_login"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    app:boxStrokeColor="#03A9F4"
-                    app:boxStrokeWidth="2dp"
-                    app:endIconMode="password_toggle"
-                    app:hintTextColor="#03A9F4"
-                    app:passwordToggleEnabled="true"
-                    app:errorEnabled="true"
-                    app:helperTextEnabled="true">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/password_edittext_login"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:hint="Password"
-                        android:inputType="textPassword" />
-                </com.google.android.material.textfield.TextInputLayout>
-            </LinearLayout>
-
-            <!-- Forgot Password Text -->
-            <TextView
-                android:id="@+id/forgot_password_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="end"
-                android:layout_marginBottom="20dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:foreground="?android:attr/selectableItemBackground"
-                android:padding="8dp"
-                android:text="Forgot Password?"
-                android:textColor="#03A9F4"
-                android:textSize="14sp"
-                android:textStyle="bold" />
-
-            <!-- Login Button -->
+            <!-- Confirm Button -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_login"
+                android:id="@+id/btn_confirm_user"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:layout_marginBottom="15dp"
                 android:backgroundTint="#03A9F4"
-                android:text="SIGN IN"
+                android:text="CONFIRM USERNAME"
                 android:textSize="16sp"
                 android:enabled="false"
                 android:alpha="0.6"
                 app:cornerRadius="10dp"
+                app:icon="@drawable/ic_check"
                 app:iconGravity="textStart"
                 app:iconPadding="10dp"
                 app:rippleColor="#FFFFFF" />
 
+            <!-- Info Message -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="15dp"
+                android:background="@drawable/info_background"
+                android:orientation="horizontal"
+                android:padding="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center_vertical"
+                    android:layout_marginEnd="8dp"
+                    android:src="@drawable/ic_info"
+                    app:tint="#2196F3" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="We'll verify your username before allowing you to reset your password for security purposes."
+                    android:textColor="#2196F3"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
             <!-- Separator -->
             <View
-                android:id="@+id/wire_separator_login"
+                android:id="@+id/wire_separator_confirm"
                 android:layout_width="match_parent"
                 android:layout_height="2dp"
                 android:layout_marginTop="5dp"
                 android:layout_marginBottom="5dp"
                 android:background="#CCCCCC" />
 
-            <!-- Switch to Register Button (navigates to SigninActivity) -->
+            <!-- Back to Login Button -->
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btn_switch_to_register"
+                android:id="@+id/btn_back_to_login_confirm"
                 android:layout_width="match_parent"
                 android:layout_height="55dp"
                 android:backgroundTint="#E0E0E0"
-                android:text="CREATE NEW ACCOUNT"
+                android:text="BACK TO LOGIN"
                 android:textColor="#03A9F4"
                 android:textSize="16sp"
                 app:cornerRadius="10dp"
+                app:icon="@drawable/ic_arrow_back"
+                app:iconGravity="textStart"
+                app:iconPadding="10dp"
                 app:strokeColor="#03A9F4"
                 app:strokeWidth="1dp"
                 app:rippleColor="#03A9F4" />
@@ -198,7 +202,7 @@
         android:layout_width="match_parent"
         android:layout_height="120dp"
         android:layout_alignParentBottom="true"
-        android:alpha="0.5"
+        android:alpha="0.3"
         android:scaleType="fitXY"
         android:src="@drawable/circuit_traces" />
 

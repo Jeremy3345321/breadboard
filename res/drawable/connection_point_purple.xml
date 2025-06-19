@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">  <!-- This creates a circular shape -->
+
+    <solid android:color="#800080"/>  <!-- Purple color (you can adjust the hex code) -->
+    <size android:width="50dp" android:height="50dp"/>  <!-- Size of the shape -->
+    <stroke android:width="2dp" android:color="#4B0082"/>  <!-- Optional border -->
+
+</shape>
