@@ -1,12 +1,12 @@
 package com.example.breadboard;
 
 import android.app.AlertDialog;
-import android.widget.GridLayout;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
 import androidx.core.content.ContextCompat;
 
+import com.example.breadboard.ComponentToDB;
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
 
@@ -34,6 +34,7 @@ public class AddConnection {
                          ICSetup icSetup,
                          InputManager inputManager,
                          OutputManager outputManager,
+                         ComponentManager componentManager,
                          List<Coordinate> vccPins,
                          List<Coordinate> gndPins) {
         this.mainActivity = mainActivity;
@@ -142,69 +143,13 @@ public class AddConnection {
     }
 
     private void addVcc(Coordinate coord) {
-        // Use ComponentManager if available, otherwise fallback to original method
-        if (componentManager != null) {
-            componentManager.addComponent(coord, ComponentToDB.VCC);
-        } else {
-            // Fallback to original implementation
-            if (checkValue(coord, 1)) {
-                resizeSpecialPin(coord, R.drawable.breadboard_vcc);
-                vccPins.add(coord);
-                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 1);
-            } else {
-                showToast("Error! Another Connection already Exists!");
-            }
-        }
+        // Use ComponentManager's addComponent method with VCC type
+        componentManager.addComponent(coord, ComponentToDB.VCC);
     }
 
     private void addGround(Coordinate coord) {
-        // Use ComponentManager if available, otherwise fallback to original method
-        if (componentManager != null) {
-            componentManager.addComponent(coord, ComponentToDB.GND);
-        } else {
-            // Fallback to original implementation
-            if (checkValue(coord, -2)) {
-                resizeSpecialPin(coord, R.drawable.breadboard_gnd);
-                gndPins.add(coord);
-                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, -2);
-            } else {
-                showToast("Error! Another Connection already Exists!");
-            }
-        }
-    }
-
-    public void resizeSpecialPin(Coordinate coord, int drawableResource) {
-        ImageButton pin = pins[coord.s][coord.r][coord.c];
-
-        // Set the new drawable
-        pin.setImageResource(drawableResource);
-
-        // Get the current layout parameters
-        GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
-
-        int originalSize = mainActivity.getResources().getDimensionPixelSize(R.dimen.pin_size);
-        int newSize = originalSize + 36;
-
-        // Update the size
-        params.width = newSize;
-        params.height = newSize;
-
-        // Adjust margins to center the larger pin in its grid cell
-        int extraSize = newSize - originalSize;
-        int marginAdjustment = -extraSize / 2;
-
-        params.setMargins(
-                2 + marginAdjustment, // left
-                -2 + marginAdjustment, // top
-                2 + marginAdjustment, // right
-                -2 + marginAdjustment  // bottom
-        );
-
-        // Apply the new layout parameters
-        pin.setLayoutParams(params);
-
-        // Ensure the pin is brought to front so it's visible over other elements
-        pin.bringToFront();
+        // Use ComponentManager's addComponent method with GND type
+        componentManager.addComponent(coord, ComponentToDB.GND);
     }
 
     public boolean checkValue(Coordinate src, int value) {

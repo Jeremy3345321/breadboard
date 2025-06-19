@@ -136,6 +136,9 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // Initialize WireManager BEFORE ConnectionManager
         wireManager = new WireManager(this, pins, pinAttributes, wires, icPinManager, breadboardContainer);
 
+        // INITIALIZE ComponentManager HERE - BEFORE ConnectionManager
+        componentManager = new ComponentManager(this, pins, pinAttributes, vccPins, gndPins, currentUsername, currentCircuitName);
+
         // Initialize ConnectionManager but DON'T build connection map yet
         connectionManager = new ConnectionManager(
                 this, inputManager, outputManager, wireManager,
@@ -151,8 +154,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
 
         // Initialize AddConnection
         addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
-                inputManager, outputManager, vccPins, gndPins);
-
+                inputManager, outputManager, componentManager, vccPins, gndPins);
         // Initialize RemoveConnection
         removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
                 inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
@@ -176,7 +178,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             wireToggleButton.setOnClickListener(v -> toggleWireMode());
         }
     }
-
 
     // ADD THIS METHOD - Toggle wire mode
     private void toggleWireMode() {

@@ -3,10 +3,10 @@ package com.example.breadboard;
 import android.widget.ImageButton;
 import android.widget.Toast;
 
-import com.example.breadboard.model.Attribute;
-import com.example.breadboard.model.Coordinate;
 import com.example.breadboard.ComponentToDB;
 import com.example.breadboard.ComponentToDB.ComponentData;
+import com.example.breadboard.model.Attribute;
+import com.example.breadboard.model.Coordinate;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,8 +31,8 @@ public class ComponentManager {
     private Map<Coordinate, Integer> componentStates = new HashMap<>();
 
     public ComponentManager(MainActivity mainActivity, ImageButton[][][] pins,
-                           Attribute[][][] pinAttributes, List<Coordinate> vccPins, 
-                           List<Coordinate> gndPins, String username, String circuitName) {
+                            Attribute[][][] pinAttributes, List<Coordinate> vccPins,
+                            List<Coordinate> gndPins, String username, String circuitName) {
         this.mainActivity = mainActivity;
         this.pins = pins;
         this.pinAttributes = pinAttributes;
