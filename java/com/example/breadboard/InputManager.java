@@ -26,13 +26,15 @@ public class InputManager {
     private ImageButton[][][] pins;
     private Attribute[][][] pinAttributes;
     private GridLayout middleGrid;
-    private List<Coordinate> inputs;
+    List<Coordinate> inputs;
     private Map<Coordinate, InputInfo> inputNames;
     private Map<Coordinate, TextView> inputLabels;
     private LinearLayout inputDisplayContainer;
     private InputToDB inputToDB;
     private String currentUsername;
     private String currentCircuitName;
+
+    private ConnectionManager connectionManager;
 
     private String previousUsername = null;
     private String previousCircuitName = null;
@@ -51,7 +53,8 @@ public class InputManager {
     public InputManager(MainActivity mainActivity, ImageButton[][][] pins, Attribute[][][] pinAttributes,
                         GridLayout middleGrid, List<Coordinate> inputs,
                         Map<Coordinate, InputInfo> inputNames, Map<Coordinate, TextView> inputLabels,
-                        LinearLayout inputDisplayContainer, String username, String circuitName) {
+                        LinearLayout inputDisplayContainer, String username, String circuitName,
+                        ConnectionManager connectionManager) {
         this.mainActivity = mainActivity;
         this.pins = pins;
         this.pinAttributes = pinAttributes;
@@ -62,7 +65,11 @@ public class InputManager {
         this.inputDisplayContainer = inputDisplayContainer;
         this.currentUsername = username;
         this.currentCircuitName = circuitName;
+        this.connectionManager = connectionManager; // Initialize connectionManager
         this.inputToDB = new InputToDB(mainActivity);
+    }
+    public void setConnectionManager(ConnectionManager connectionManager) {
+        this.connectionManager = connectionManager;
     }
 
     public void showInputNameDialog(Coordinate coord) {
@@ -326,8 +333,19 @@ public class InputManager {
             info.value = info.value == 0 ? 1 : 0;
             pinAttributes[coord.s][coord.r][coord.c].value = info.value;
 
-            System.out.println("Toggled input at " + coord + " to value=" + info.value + " for circuit " + currentCircuitName);
+            System.out.println("Toggled input at " + coord + " to value=" + info.value);
             updateInputDisplay();
+
+            // CRITICAL: Ensure proper signal propagation to IC pins
+            if (connectionManager != null) {
+                // First rebuild connections to ensure IC pins are included
+                connectionManager.buildConnectionMap();
+
+                // Then propagate the new signal value
+                connectionManager.onInputValueChanged(coord);
+            } else {
+                System.out.println("Warning: ConnectionManager is null");
+            }
         }
     }
 
@@ -595,13 +613,13 @@ public class InputManager {
 
     // Clear all in-memory input data
     public void clearInMemoryInputData() {
-//        System.out.println("=== CLEARING IN-MEMORY INPUT DATA START ===");
-//        System.out.println("Before clearing:");
-//        System.out.println("- inputs.size(): " + inputs.size());
-//        System.out.println("- inputNames.size(): " + inputNames.size());
-//        System.out.println("- inputLabels.size(): " + inputLabels.size());
-//        System.out.println("- inputDisplayContainer child count: " +
-//                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
+        System.out.println("=== CLEARING IN-MEMORY INPUT DATA START ===");
+        System.out.println("Before clearing:");
+        System.out.println("- inputs.size(): " + inputs.size());
+        System.out.println("- inputNames.size(): " + inputNames.size());
+        System.out.println("- inputLabels.size(): " + inputLabels.size());
+        System.out.println("- inputDisplayContainer child count: " +
+                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
 
         // Clear the input coordinate list
         inputs.clear();
@@ -620,15 +638,15 @@ public class InputManager {
             inputDisplayContainer.invalidate();
         }
 
-//        System.out.println("After clearing:");
-//        System.out.println("- inputs.size(): " + inputs.size());
-//        System.out.println("- inputNames.size(): " + inputNames.size());
-//        System.out.println("- inputLabels.size(): " + inputLabels.size());
-//        System.out.println("- inputDisplayContainer child count: " +
-//                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
-//
-//        System.out.println("In-memory input data cleared successfully");
-//        System.out.println("=== CLEARING IN-MEMORY INPUT DATA END ===");
+        System.out.println("After clearing:");
+        System.out.println("- inputs.size(): " + inputs.size());
+        System.out.println("- inputNames.size(): " + inputNames.size());
+        System.out.println("- inputLabels.size(): " + inputLabels.size());
+        System.out.println("- inputDisplayContainer child count: " +
+                (inputDisplayContainer != null ? inputDisplayContainer.getChildCount() : "null"));
+
+        System.out.println("In-memory input data cleared successfully");
+        System.out.println("=== CLEARING IN-MEMORY INPUT DATA END ===");
     }
 
     public String getPreviousCircuitContext() {
@@ -663,4 +681,5 @@ public class InputManager {
 
         System.out.println("Input visual elements cleared successfully");
     }
+
 }

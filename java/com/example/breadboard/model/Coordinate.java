@@ -4,7 +4,7 @@ import java.util.Objects;
 
 public class Coordinate {
     public int s; // section
-    public int r; // row  
+    public int r; // row
     public int c; // column
 
     public Coordinate(int s, int r, int c) {

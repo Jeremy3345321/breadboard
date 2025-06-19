@@ -212,6 +212,32 @@ public class OutputManager {
         }
     }
 
+    private int traceWireValue(Coordinate startCoord, List<Coordinate> visited) {
+        if (visited.contains(startCoord)) {
+            return -1; // Avoid infinite loops
+        }
+
+        visited.add(startCoord);
+        Attribute startAttr = pinAttributes[startCoord.s][startCoord.r][startCoord.c];
+
+        // If this pin has a definite value, return it
+        if (startAttr.value == 1) return 1;  // VCC
+        if (startAttr.value == -2) return 0; // GND
+        if (startAttr.value == 0) return 0;  // Input LOW
+
+        // Check if this is connected to an IC output
+        if (icPinManager.isICPin(startCoord)) {
+            ICPinManager.ICPinInfo pinInfo = icPinManager.getICPinInfo(startCoord);
+            if (pinInfo != null && "OUTPUT".equals(pinInfo.function)) {
+                return icPinManager.getPinValue(startCoord);
+            }
+        }
+
+        // Trace through wire connections (you'll need access to WireManager's connections)
+        // This would require exposing the wire connections or creating a shared connection registry
+
+        return -1; // No value found
+    }
     /**
      * Get the current value of an output pin by checking its column
      * FIXED: Improved logic to properly read IC output values
@@ -225,16 +251,14 @@ public class OutputManager {
             Coordinate checkCoord = new Coordinate(coord.s, r, coord.c);
             System.out.println("Checking " + checkCoord.toString());
 
-            // FIXED: Check IC pins first and handle them properly
+            // Check IC pins first
             if (icPinManager.isICPin(checkCoord)) {
                 ICPinManager.ICPinInfo pinInfo = icPinManager.getICPinInfo(checkCoord);
                 if (pinInfo != null && "OUTPUT".equals(pinInfo.function)) {
-                    // FIXED: Use ICPinManager's getPinValue method which handles IC outputs correctly
                     int icValue = icPinManager.getPinValue(checkCoord);
                     System.out.println("Found IC output pin at " + checkCoord + " with value " + icValue);
                     return icValue;
                 }
-                // For IC input pins, continue checking other pins in column
                 continue;
             }
 
@@ -253,22 +277,34 @@ public class OutputManager {
                 return 0;
             }
 
-            // Check for input pins (value = 0, but not -1, -3, or 2)
+            // NEW: Check for wire connections that might bring values from other locations
+            if (attr.link != -1) {
+                // This pin has a wire connection, check if it has a propagated value
+                if (attr.value != -1 && attr.value != -3 && attr.value != 2) {
+                    System.out.println("Found wire-connected pin at " + checkCoord.toString() + " with value " + attr.value);
+                    return attr.value;
+                }
+
+                // NEW: If no direct value, trace through wire connections to find source
+                int traceValue = traceWireValue(checkCoord, new ArrayList<>());
+                if (traceValue != -1) {
+                    System.out.println("Traced wire value " + traceValue + " from " + checkCoord.toString());
+                    return traceValue;
+                }
+            }
+
+
+            // Check for input pins
             if (attr.value == 0) {
                 System.out.println("Found input pin at " + checkCoord.toString() + " with value 0");
                 return 0;
-            }
-
-            // Check for other connected pins (exclude output pins with value 2)
-            if (attr.link != -1 && attr.value != -1 && attr.value != -3 && attr.value != 2) {
-                System.out.println("Found connected pin at " + checkCoord.toString() + " with value " + attr.value);
-                return attr.value;
             }
         }
 
         System.out.println("getOutputValue: No connection found for " + coord.toString() + ", defaulting to 0");
         return 0;
     }
+
 
 
     /**
@@ -330,10 +366,10 @@ public class OutputManager {
     private void clearColumnValues(Coordinate coord) {
         for (int r = 0; r < 5; r++) { // ROWS = 5
             if (r == coord.r) continue; // Skip the output pin position
-            
+
             Coordinate checkCoord = new Coordinate(coord.s, r, coord.c);
             Attribute attr = pinAttributes[coord.s][r][coord.c];
-            
+
             // Only clear if it's not an IC pin or other special pin
             if (!icPinManager.isICPin(checkCoord) && attr.link == -1) {
                 attr.value = -1;
@@ -505,31 +541,15 @@ public class OutputManager {
 
         // Enhanced logic to detect when we need to clear data
         boolean isActualSwitch = !username.equals(currentUsername) || !circuitName.equals(currentCircuitName);
+        boolean isReturningToDifferentCircuit = (previousUsername != null && previousCircuitName != null) &&
+                (!username.equals(previousUsername) || !circuitName.equals(previousCircuitName));
+        boolean shouldClearData = isActualSwitch || forceNextClear || isReturningToDifferentCircuit;
 
-        // FIXED: Don't clear data on initial load when both current and new contexts are the same
-        boolean isInitialLoad = (currentUsername == null || currentCircuitName == null);
-        boolean isSameCircuit = username.equals(currentUsername) && circuitName.equals(currentCircuitName);
-
-        boolean shouldClearData = false;
-
-        if (forceNextClear) {
-            shouldClearData = true;
-            System.out.println("Clearing due to force flag");
-        } else if (isInitialLoad) {
-            // On initial load, don't clear if we're loading the same circuit
-            shouldClearData = false;
-            System.out.println("Initial load - not clearing data");
-        } else if (isActualSwitch) {
-            shouldClearData = true;
-            System.out.println("Clearing due to actual circuit switch");
-        }
-
-        System.out.println("Context switch analysis:");
-        System.out.println("- isActualSwitch: " + isActualSwitch);
-        System.out.println("- isInitialLoad: " + isInitialLoad);
-        System.out.println("- isSameCircuit: " + isSameCircuit);
-        System.out.println("- forceNextClear: " + forceNextClear);
-        System.out.println("- shouldClearData: " + shouldClearData);
+//        System.out.println("Context switch analysis:");
+//        System.out.println("- isActualSwitch: " + isActualSwitch);
+//        System.out.println("- isReturningToDifferentCircuit: " + isReturningToDifferentCircuit);
+//        System.out.println("- forceNextClear: " + forceNextClear);
+//        System.out.println("- shouldClearData: " + shouldClearData);
 
         if (shouldClearData) {
             // Store previous context before clearing
@@ -683,7 +703,7 @@ public class OutputManager {
             debug.append("Pin ").append(rowLabel).append("-").append(coord.c)
                     .append(": State=").append(state ? "ON" : "OFF")
                     .append(", Value=").append(value);
-            
+
             // FIXED: Add more debug info to help troubleshoot
             Attribute attr = pinAttributes[coord.s][coord.r][coord.c];
             debug.append(", Attr.value=").append(attr.value)
@@ -691,5 +711,24 @@ public class OutputManager {
         }
 
         return debug.toString();
+    }
+    public void updateAllOutputVisuals() {
+        System.out.println("=== UPDATING ALL OUTPUT VISUALS ===");
+
+        // First propagate IC outputs to ensure they have the latest values
+        propagateICOutputs();
+
+        // Update each output visual individually
+        for (Coordinate outputCoord : outputs) {
+            try {
+                updateOutputVisual(outputCoord);
+                System.out.println("Updated visual for output at " + outputCoord);
+            } catch (Exception e) {
+                System.err.println("Error updating visual for output at " + outputCoord + ": " + e.getMessage());
+            }
+        }
+
+        System.out.println("Updated " + outputs.size() + " output visuals");
+        System.out.println("=== OUTPUT VISUALS UPDATE COMPLETE ===");
     }
 }

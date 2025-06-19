@@ -59,7 +59,8 @@ public class ICSetup {
                    Attribute[][][] pinAttributes, List<Button> icGates,
                    List<Object> gates, List<Coordinate> inputs,
                    List<Coordinate> outputs, List<Coordinate> vccPins,
-                   List<Coordinate> gndPins, List<ICGateInfo> icGateObjects, AddConnection addConnection) {
+                   List<Coordinate> gndPins, List<ICGateInfo> icGateObjects,
+                   AddConnection addConnection) {
         this.mainActivity = mainActivity;
         this.icContainer = icContainer;
         this.pinAttributes = pinAttributes;
@@ -72,6 +73,8 @@ public class ICSetup {
         this.icGateObjects = icGateObjects;
         this.addConnection = addConnection;
         this.icToDB = new ICToDB(mainActivity);
+
+        clearInMemoryICData();
     }
 
     public void showICSelectionDialog(Coordinate coord) {
@@ -81,12 +84,10 @@ public class ICSetup {
         builder.setTitle("Select IC Type")
                 .setItems(icTypes, (dialog, which) -> {
                     String icType = icTypes[which];
-                    addICGate(coord, icType); // CHANGED: Delegate to ICSetup
+                    addICGate(coord, icType);
                 })
                 .show();
     }
-
-
 
     public void loadICGate(String icType, Coordinate coord) {
         Button icButton = new Button(mainActivity);
@@ -96,24 +97,21 @@ public class ICSetup {
         icButton.setTextSize(12);
 
         int pinSize = mainActivity.getResources().getDimensionPixelSize(R.dimen.pin_size);
-        int icWidth = pinSize * 7 - 19; // IC spans 7 columns
+        int icWidth = pinSize * 7 - 19;
         int icHeight = mainActivity.getResources().getDimensionPixelSize(R.dimen.ic_height);
 
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(icWidth, icHeight);
 
         int rowLabelWidth = pinSize;
-        int pinMarginLeft = 1; // Pin margins from setupPins()
+        int pinMarginLeft = 1;
         int pinMarginLeftPx = Math.round(pinMarginLeft * mainActivity.getResources().getDisplayMetrics().density);
 
-        // Account for scroll view and grid padding
         int scrollPadding = Math.round(5 * mainActivity.getResources().getDisplayMetrics().density);
         int gridPadding = Math.round(4 * mainActivity.getResources().getDisplayMetrics().density);
 
-        // Calculate absolute position
         params.leftMargin = mainActivity.contMargin + rowLabelWidth + pinMarginLeftPx + (coord.c * (pinSize + (pinMarginLeftPx * 2))
                 + gridPadding + scrollPadding);
 
-        // Center vertically in the gap
         params.addRule(RelativeLayout.CENTER_VERTICAL);
 
         icButton.setLayoutParams(params);
@@ -125,7 +123,7 @@ public class ICSetup {
             gates.add(gateLogic);
         } else {
             Toast.makeText(mainActivity, "Failed to create " + icType + " gate", Toast.LENGTH_SHORT).show();
-            return; // Don't continue if gate creation failed
+            return;
         }
 
         if (breadboardParentLayout == null) {
@@ -154,7 +152,6 @@ public class ICSetup {
         // Mark IC pins as occupied
         markICPins(coord, icType);
 
-        // ✅ ADDED: Log the loaded IC for debugging
         System.out.println("Loaded IC " + icType + " at coordinate " + coord + " from database");
 
         int addedPadding = 0;
@@ -196,24 +193,21 @@ public class ICSetup {
         icButton.setTextSize(12);
 
         int pinSize = mainActivity.getResources().getDimensionPixelSize(R.dimen.pin_size);
-        int icWidth = pinSize * 7 - 19; // IC spans 7 columns
+        int icWidth = pinSize * 7 - 19;
         int icHeight = mainActivity.getResources().getDimensionPixelSize(R.dimen.ic_height);
 
         RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams(icWidth, icHeight);
 
         int rowLabelWidth = pinSize;
-        int pinMarginLeft = 1; // Pin margins from setupPins()
+        int pinMarginLeft = 1;
         int pinMarginLeftPx = Math.round(pinMarginLeft * mainActivity.getResources().getDisplayMetrics().density);
 
-        // Account for scroll view and grid padding
         int scrollPadding = Math.round(5 * mainActivity.getResources().getDisplayMetrics().density);
         int gridPadding = Math.round(4 * mainActivity.getResources().getDisplayMetrics().density);
 
-        // Calculate absolute position
         params.leftMargin = mainActivity.contMargin + rowLabelWidth + pinMarginLeftPx + (coord.c * (pinSize + (pinMarginLeftPx * 2))
                 + gridPadding + scrollPadding);
 
-        // Center vertically in the gap
         params.addRule(RelativeLayout.CENTER_VERTICAL);
 
         icButton.setLayoutParams(params);
@@ -225,7 +219,7 @@ public class ICSetup {
             gates.add(gateLogic);
         } else {
             Toast.makeText(mainActivity, "Failed to create " + icType + " gate", Toast.LENGTH_SHORT).show();
-            return; // Don't continue if gate creation failed
+            return;
         }
 
         if (breadboardParentLayout == null) {
@@ -238,7 +232,6 @@ public class ICSetup {
         ICGateInfo icGateInfo = new ICGateInfo(icType, coord, icButton, gateLogic);
         icGateObjects.add(icGateInfo);
 
-        // Modified click listener to show IC details
         icButton.setOnClickListener(v -> showICConnectionDialog(icGateInfo));
 
         icGates.add(icButton);
@@ -305,12 +298,6 @@ public class ICSetup {
 
     public void executeCircuit() {
         System.out.println("Circuit executed");
-        // Set VCC pins to high
-        for (Coordinate coord : vccPins) {
-            addConnection.addValue(coord, 1);
-        }
-
-        // Set input pins - use their current values instead of always setting to 0
         for (Coordinate coord : inputs) {
             // Keep existing input values - they should be set by the InputManager
             // Don't override them here
@@ -401,7 +388,6 @@ public class ICSetup {
                 inputs[i][0] = gateInputs.length > 0 ? gateInputs[0] : 0;
             }
         } else {
-            // Most other gates have 2 inputs (AND, OR, NAND, NOR, XOR)
             for (int i = 0; i < numGates; i++) {
                 inputs[i] = getGateInputsForSpecificGate(gate, i);
             }
@@ -485,7 +471,6 @@ public class ICSetup {
     }
 
     private void setColumnValue(Coordinate pinCoord, int value) {
-        // Set the value for all connected pins in the same column
         System.out.println("setColumnValue, value: " + value + " pinCoord: " + pinCoord.toString());
         for (int r = 0; r < ROWS; r++) {
             if (pinCoord.c < COLS) {
@@ -585,7 +570,7 @@ public class ICSetup {
         AlertDialog.Builder builder = new AlertDialog.Builder(mainActivity);
         builder.setTitle("IC Pin Connections")
                 .setMessage(connectionInfo.toString())
-                .setPositiveButton("Remove IC", (dialog, which) -> removeICByCoord(icGate.position))
+                .setPositiveButton("Remove", (dialog, which) -> removeICByCoord(icGate.position))
                 .setNegativeButton("Close", null)
                 .show();
 
@@ -738,11 +723,6 @@ public class ICSetup {
             // Skip IC marker pins (-3 value)
             if (attr.value == -3) continue;
 
-            // Check if there's a VCC connection in this column
-            if (vccPins.contains(new Coordinate(section, r, col))) {
-                return "VCC";
-            }
-
             // Check if there's a GND connection in this column
             if (gndPins.contains(new Coordinate(section, r, col))) {
                 return "GND";
@@ -764,6 +744,12 @@ public class ICSetup {
                 if (attr.value == -2) return "GND";
                 if (attr.value == 0) return "0";
                 return String.valueOf(attr.value);
+            }
+
+
+            // Check if there's a VCC connection in this column
+            if (vccPins.contains(new Coordinate(section, r, col))) {
+                return "VCC";
             }
         }
 
@@ -792,12 +778,6 @@ public class ICSetup {
         isCurrentlyLoading = true;
 
         try {
-            // FIXED: Defensive clearing before loading
-            System.out.println("Performing defensive clear before loading from database");
-            clearInMemoryICData();
-            clearICVisuals();
-            mainActivity.ICnum = 0;
-
             // Get fresh data from database
             List<ICToDB.ICData> databaseICs = icToDB.getICsForCircuit(currentUsername, currentCircuitName);
             System.out.println("Found " + databaseICs.size() + " ICs in database");

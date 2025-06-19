@@ -15,8 +15,10 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.breadboard.ICPinManager;
 import com.example.breadboard.ICPinManager.ICPinInfo;
 import com.example.breadboard.InputManager.InputInfo;
+import com.example.breadboard.OutputManager;
 import com.example.breadboard.logic.ICGateInfo;
 import com.example.breadboard.model.Attribute;
 import com.example.breadboard.model.Coordinate;
@@ -26,22 +28,23 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class MainActivity extends AppCompatActivity implements BreadboardSetup.OnPinClickListener {
 
     // Implements:
     private BreadboardSetup breadboardSetup;
     private ICSetup icSetup;
+
+    private ComponentManager componentManager;
+
     private ICPinManager icPinManager;
     private InputManager inputManager;
     private OutputManager outputManager;
     private AddConnection addConnection;
     private RemoveConnection removeConnection;
-    private WireManager wireManager;
 
-
-    private ComponentManager componentManager;
+    private ConnectionManager connectionManager;
+    private WireManager wireManager; // ADD THIS LINE
     // UI Components
     private GridLayout topGrid, middleGrid, bottomGrid;
     private HorizontalScrollView topScrollView;
@@ -50,28 +53,28 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     private HorizontalScrollView inputDisplayScrollView;
     private LinearLayout inputDisplayContainer;
     private RelativeLayout icContainer;
+    private RelativeLayout breadboardContainer; // ADD THIS LINE - main container for breadboard
     private ImageButton[][][] pins;
     private TextView[] topLabels, bottomLabels;
     private TextView[] rowLabels;
     private static Map<Coordinate, ICPinInfo> icPinRegistry = new HashMap<>();
     private Map<Coordinate, TextView> inputLabels = new HashMap<>();
-    String currentUsername;
-    String currentCircuitName;
-    Button executeButton;
+    String currentUsername = "defaultUser";
+    String currentCircuitName = "defaultCircuit";
 
+    Button executeButton;
+    Button wireToggleButton; // ADD THIS LINE
 
     // Data structures
-    static Attribute[][][] pinAttributes;
+    private static Attribute[][][] pinAttributes;
     private static List<Button> icGates = new ArrayList<>();
     private static List<Object> gates = new ArrayList<>();
-    private static List<Coordinate> inputs = new ArrayList<>();
+    static List<Coordinate> inputs = new ArrayList<>();
     private static List<Coordinate> outputs = new ArrayList<>();
     private static List<Coordinate> vccPins = new ArrayList<>();
     private static List<Coordinate> gndPins = new ArrayList<>();
+    private static List<Pins> wires = new ArrayList<>();
     private static List<ICGateInfo> icGateObjects = new ArrayList<>();
-    private HashMap<Coordinate, Coordinate> sourceToDestination = new HashMap<>();
-    private HashMap<Coordinate, Set<Coordinate>> connectionMap = new HashMap<>();
-    private HashMap<Coordinate, List<WireToDB.WireData>> coordinateToWires = new HashMap<>();
 
     private static Map<Coordinate, InputInfo> inputNames = new HashMap<>();
 
@@ -96,7 +99,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
     }
 
     private void initializeComponents() {
-        // Get circuit context first before initializing other components.
+        // Get circuit context first before intializing other components.
         getCurrentCircuitContext();
 
         //  Initializing UI Elements
@@ -106,6 +109,10 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         icContainer = findViewById(R.id.icContainer);
         inputDisplayScrollView = findViewById(R.id.inputDisplayScrollView);
         inputDisplayContainer = findViewById(R.id.inputDisplayContainer);
+
+        // ADD THIS LINE - Get the main breadboard container
+        breadboardContainer = findViewById(R.id.breadboardContainer); // You'll need to add this to your layout
+        // If you don't have a breadboardContainer in your layout, you can use icContainer or create one
 
         // Initialize data structures
         pins = new ImageButton[SECTIONS][ROWS][COLS];
@@ -119,9 +126,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
                 pins, pinAttributes, topLabels, bottomLabels, rowLabels);
         breadboardSetup.setPinClickListener(this);
 
-        // Initialize WireManager EARLY - before other managers that might need it
-        wireManager = new WireManager(this, pins, currentUsername, currentCircuitName);
-
         // Initialize ICSetup
         icSetup = new ICSetup(this, icContainer, pinAttributes, icGates, gates,
                 inputs, outputs, vccPins, gndPins, icGateObjects, addConnection);
@@ -129,74 +133,66 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // Initialize ICPinManager
         icPinManager = new ICPinManager(this, pinAttributes, vccPins, gndPins, inputs);
 
-        componentManager = new ComponentManager(this, pins, pinAttributes, vccPins, gndPins,
-                currentUsername, currentCircuitName);
+        // Initialize WireManager BEFORE ConnectionManager
+        wireManager = new WireManager(this, pins, pinAttributes, wires, icPinManager, breadboardContainer);
 
-        // Initialize InputManager - pass the current context directly
+        // Initialize ConnectionManager but DON'T build connection map yet
+        connectionManager = new ConnectionManager(
+                this, inputManager, outputManager, wireManager,
+                icPinManager, pins, pinAttributes, currentUsername, currentCircuitName
+        );
+
+        // Initialize InputManager (without loading from database yet)
         inputManager = new InputManager(this, pins, pinAttributes, middleGrid, inputs,
-                inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName);
+                inputNames, inputLabels, inputDisplayContainer, currentUsername, currentCircuitName, connectionManager);
 
-        // Initialize OutputManager - pass the current context directly
-        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager, currentUsername,
-                currentCircuitName);
+        // Intialize OutputManager
+        outputManager = new OutputManager(this, pins, pinAttributes, outputs, icPinManager, currentUsername, currentCircuitName);
 
         // Initialize AddConnection
         addConnection = new AddConnection(this, pins, pinAttributes, icSetup,
-                inputManager, outputManager, componentManager, vccPins, gndPins);
+                inputManager, outputManager, vccPins, gndPins);
 
         // Initialize RemoveConnection
         removeConnection = new RemoveConnection(this, pins, pinAttributes, middleGrid,
                 inputs, vccPins, gndPins, inputNames, inputLabels, inputManager, outputManager);
 
-        // IMPORTANT: Load data from database AFTER all managers are initialized
-        // This ensures the context is properly set and no data gets cleared during initialization
-        loadAllDataFromDatabase();
-
+        // Connect the managers
+        connectWireAndOutputManagers();
         debugDatabase();
 
+        // Initialize buttons
         Button executeButton = findViewById(R.id.btnExecute);
         executeButton.setOnClickListener(v -> executeCircuit());
 
         Button clearButton = findViewById(R.id.btnClear);
         clearButton.setOnClickListener(v -> clearCircuitAndDatabase());
-    }
 
-    /**
-     * Load all component data from database after initialization
-     */
-    private void loadAllDataFromDatabase() {
-        System.out.println("=== LOADING ALL DATA FROM DATABASE ===");
-
-        icSetup.setLoadingFromDatabase(true);
-        getCurrentCircuitContext();
-
-        // Load in the correct order to maintain dependencies
-        if (icSetup != null) {
-            icSetup.loadAllICsFromDatabase();
-        }
-
-        if (inputManager != null) {
-            inputManager.loadInputsFromDatabase();
-        }
-
-        if (outputManager != null) {
-            outputManager.loadOutputsFromDatabase();
-        }
-
-        // Load components (VCC/GND) from database
-        if (componentManager != null) {
-            componentManager.loadComponentsFromDatabase();
-        }
-
-        // Load wires from database - should be loaded after components
-        if (wireManager != null) {
-            wireManager.loadWiresFromDatabase();
-        }
-
-        icSetup.setLoadingFromDatabase(false);
         icSetup.updateCircuitContext(currentUsername, currentCircuitName);
 
-        System.out.println("=== FINISHED LOADING ALL DATA FROM DATABASE ===");
+        // ADD THIS BLOCK - Initialize wire toggle button
+        wireToggleButton = findViewById(R.id.btnWireToggle); // You'll need to add this button to your layout
+        if (wireToggleButton != null) {
+            wireToggleButton.setOnClickListener(v -> toggleWireMode());
+        }
+    }
+
+
+    // ADD THIS METHOD - Toggle wire mode
+    private void toggleWireMode() {
+        if (wireManager != null) {
+            wireManager.toggleWireMode();
+            // Update button text to show current state
+            if (wireToggleButton != null) {
+                wireToggleButton.setText(wireManager.isWireMode() ? "Exit Wire Mode" : "Wire Mode");
+            }
+        }
+    }
+    private void connectWireAndOutputManagers() {
+        if (wireManager != null && outputManager != null) {
+            wireManager.setOutputManager(outputManager);
+            System.out.println("WireManager and OutputManager connected successfully");
+        }
     }
 
     private void debugDatabase() {
@@ -206,11 +202,6 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
 
         // Full comprehensive debug
         dbHelper.fullDatabaseDebug();
-
-        // Or individual checks:
-        // dbHelper.listAllTables();
-        // dbHelper.showTableStructure("inputs");
-        // dbHelper.showTableData("inputs");
     }
 
     private void getCurrentCircuitContext() {
@@ -263,7 +254,13 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             return;
         }
 
+        // Debug: Print IC pins before execution
         icPinManager.debugPrintICPins();
+
+        // ADD THIS LINE - Update wire connections before execution
+        if (wireManager != null) {
+            wireManager.updateWireValues();
+        }
 
         // Execute the circuit through ICSetup
         icSetup.executeCircuit();
@@ -271,6 +268,7 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         // Debug: Print IC pins after execution
         icPinManager.debugPrintICPins();
 
+        // Update output displays after execution
         updateOutputDisplay();
     }
 
@@ -298,10 +296,9 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
         // Load wires from database
         if (wireManager != null) {
-            wireManager.loadWiresFromDatabase();
+            //wireManager.loadWiresFromDatabase();
         }
     }
-
     private void setupScrollViews() {
         // Create HorizontalScrollViews of the label and breadboard body
         topScrollView = findViewById(R.id.topScrollView);
@@ -356,45 +353,53 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         middleScrollView.setOnScrollChangeListener(scrollListener);
         bottomScrollView.setOnScrollChangeListener(scrollListener);
     }
+
     public void resizeSpecialPin(Coordinate coord, int drawableResource) {
         ImageButton pin = pins[coord.s][coord.r][coord.c];
 
+        // Set the new drawable
         pin.setImageResource(drawableResource);
 
+        // Get the current layout parameters
         GridLayout.LayoutParams params = (GridLayout.LayoutParams) pin.getLayoutParams();
 
         int originalSize = getResources().getDimensionPixelSize(R.dimen.pin_size);
         int newSize = originalSize + 36;
 
+        // Update the size
         params.width = newSize;
         params.height = newSize;
 
+        // Adjust margins to center the larger pin in its grid cell
         int extraSize = newSize - originalSize;
         int marginAdjustment = -extraSize / 2;
 
         params.setMargins(
-                2 + marginAdjustment,
-                -2 + marginAdjustment,
-                2 + marginAdjustment,
-                -2 + marginAdjustment
+                2 + marginAdjustment, // left
+                -2 + marginAdjustment, // top
+                2 + marginAdjustment, // right
+                -2 + marginAdjustment  // bottom
         );
 
+        // Apply the new layout parameters
         pin.setLayoutParams(params);
 
+        // Ensure the pin is brought to front so it's visible over other elements
         pin.bringToFront();
         //extraPadding += 6;
     }
 
     @Override
     public void onPinClicked(Coordinate coord) {
-        // Check if we're in wire adding mode first
-        if (wireManager.isInWireAddingMode()) {
-            wireManager.handleWireDestinationClick(coord);
+        ImageButton pin = pins[coord.s][coord.r][coord.c];
+
+        // MODIFY THIS METHOD - Check if wire mode is active first
+        if (wireManager != null && wireManager.handleWirePinClick(coord)) {
+            // Wire manager handled the click
             return;
         }
 
-        // Normal pin click handling
-        ImageButton pin = pins[coord.s][coord.r][coord.c];
+        // Check current pin state and show appropriate dialog
         if (addConnection.isEmptyPin(coord)) {
             addConnection.showPinConfigDialog(coord);
         } else {
@@ -406,26 +411,61 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         inputManager.updateInputDisplay();
     }
 
+    // New method to handle input toggle from display
+    public void onInputDisplayToggle(Coordinate coord) {
+        inputManager.toggleInputValue(coord);
+    }
+
+    // Add this new method for updating outputs after circuit execution:
     public void updateOutputDisplay() {
         outputManager.updateAllOutputs();
     }
 
+    // Add this method to get the OutputManager instance:
+    public OutputManager getOutputManager() {
+        return outputManager;
+    }
+
+    // ADD THIS METHOD - Get WireManager instance
+    public WireManager getWireManager() {
+        return wireManager;
+    }
+
+    public void saveCircuitToDatabase() {
+        try {
+            inputManager.syncInputsToDatabase();
+            showToast("Circuit saved to database successfully");
+        } catch (Exception e) {
+            showToast("Error saving circuit to database");
+            System.err.println("Error saving circuit: " + e.getMessage());
+        }
+    }
+
+    public void loadCircuitFromDatabase() {
+        try {
+            inputManager.loadInputsFromDatabase();
+            showToast("Circuit loaded from database successfully");
+        } catch (Exception e) {
+            showToast("Error loading circuit from database");
+            System.err.println("Error loading circuit: " + e.getMessage());
+        }
+    }
+
     public void clearCircuitAndDatabase() {
         try {
-            // Clear database for current circuit (uses managers' internal context)
+            // Clear database for current circuit (uses inputManager's internal context)
             inputManager.clearInputsFromDatabase();
             outputManager.clearOutputsFromDatabase();
-            if (icSetup != null && currentUsername != null) {
-                icSetup.removeIC();
-            }
-            if (componentManager != null) {
-                componentManager.clearComponentsFromDatabase();
-            }
-            // Clear wires from database
+
+            // ADD THIS LINE - Clear all wires
             if (wireManager != null) {
-                wireManager.clearWiresFromDatabase();
+                wireManager.clearAllWires();
+            }
+            if (icSetup != null) {
+                icSetup.forceCleanState();
             }
 
+            // Clear current circuit state
             clearCircuitState();
 
             showToast("Circuit '" + currentCircuitName + "' cleared successfully");
@@ -465,6 +505,36 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
+    public void setCurrentUser(String username) {
+        this.currentUsername = username;
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(username, currentCircuitName);
+        }
+    }
+
+    public void setCurrentCircuit(String circuitName) {
+        this.currentCircuitName = circuitName;
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(currentUsername, circuitName);
+        }
+    }
+
+    public void switchCircuit(String username, String circuitName) {
+        // Clear current circuit state first
+        clearCircuitState();
+
+        // Update context
+        this.currentUsername = username;
+        this.currentCircuitName = circuitName;
+
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(username, circuitName);
+            // Load the new circuit's data
+            inputManager.loadInputsFromDatabase();
+        }
+    }
+
+    // Add method to clear current circuit state without affecting database
     private void clearCircuitState() {
         try {
             // Clear visual elements first
@@ -479,14 +549,14 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
             inputLabels.clear();
             outputs.clear();
 
-            // Clear IC data
-            if (icSetup != null) {
-                icSetup.removeIC();
+            // ADD THIS LINE - Clear wires from memory
+            if (wireManager != null) {
+                wireManager.clearAllWires();
             }
 
-            // Clear wire data from memory
-            if (wireManager != null) {
-                wireManager.clearInMemoryWireData();
+            // Add IC clearing:
+            if (icSetup != null) {
+                icSetup.removeIC();
             }
 
             // Update UI
@@ -500,14 +570,13 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
     }
 
-    @Override
     protected void onResume() {
         super.onResume();
 
         // Refresh circuit context when returning to activity
         getCurrentCircuitContext();
 
-        // Update all managers with current context
+        // Update InputManager with current context
         if (inputManager != null) {
             inputManager.updateCircuitContext(currentUsername, currentCircuitName);
         }
@@ -516,99 +585,64 @@ public class MainActivity extends AppCompatActivity implements BreadboardSetup.O
         }
         if (icSetup != null) {
             icSetup.updateCircuitContext(currentUsername, currentCircuitName);
-            icSetup.loadAllICsFromDatabase();
         }
-        // Update component manager context
-        if (componentManager != null) {
-            componentManager.updateCircuitContext(currentUsername, currentCircuitName);
-            componentManager.loadComponentsFromDatabase();
-        }
-        // Update wire manager context and reload wires
+
+        // ADD THIS BLOCK - Refresh visual wires after layout changes
         if (wireManager != null) {
-            wireManager.updateCircuitContext(currentUsername, currentCircuitName);
-            wireManager.loadWiresFromDatabase();
+            wireManager.refreshVisualWires();
         }
 
         System.out.println("MainActivity onResume - Context refreshed: " + currentUsername + " / " + currentCircuitName);
     }
-
-    public ComponentManager getComponentManager() {
-        return componentManager;
+    private void addVcc(Coordinate coord) {
+        // Use ComponentManager's addComponent method with VCC type
+        componentManager.addComponent(coord, ComponentToDB.VCC);
     }
 
-    public WireManager getWireManager() {
-        return wireManager;
+    private void addGround(Coordinate coord) {
+        // Use ComponentManager's addComponent method with GND type
+        componentManager.addComponent(coord, ComponentToDB.GND);
     }
 
-    public HashMap<Coordinate, Coordinate> getSourceToDestination() {
-        return sourceToDestination;
-    }
+    public void debugCurrentContext() {
+        System.out.println("=== CURRENT CIRCUIT CONTEXT ===");
+        System.out.println("Username: " + currentUsername);
+        System.out.println("Circuit Name: " + currentCircuitName);
 
-    public HashMap<Coordinate, Set<Coordinate>> getConnectionMap() {
-        return connectionMap;
-    }
+        UserAuthentication userAuth = UserAuthentication.getInstance(this);
+        System.out.println("UserAuth Username: " + userAuth.getCurrentUsername());
+        System.out.println("UserAuth LoggedIn: " + userAuth.isUserLoggedIn());
 
-    public HashMap<Coordinate, List<WireToDB.WireData>> getCoordinateToWires() {
-        return coordinateToWires;
-    }
-
-    /**
-     * Add a wire between two coordinates
-     * This method can be called by other components like AddConnection
-     */
-    public void addWire(Coordinate srcCoord, Coordinate dstCoord) {
+        // ADD THIS BLOCK - Debug wire information
         if (wireManager != null) {
-            wireManager.addWire(srcCoord, dstCoord);
+            System.out.println("=== WIRE DEBUG INFO ===");
+            System.out.println(wireManager.getWireDebugInfo());
+        }
+        System.out.println("==============================");
+    }
+
+    private void updateAllManagerContexts() {
+        // Get current context
+        getCurrentCircuitContext();
+
+        System.out.println("Updating all manager contexts with:");
+        System.out.println("- Username: " + currentUsername);
+        System.out.println("- Circuit: " + currentCircuitName);
+
+        // Update all managers with the same context
+        if (inputManager != null) {
+            inputManager.updateCircuitContext(currentUsername, currentCircuitName);
+        }
+
+        if (outputManager != null) {
+            outputManager.updateCircuitContext(currentUsername, currentCircuitName);
+        }
+
+        // ADD THIS - Update ICSetup context
+        if (icSetup != null) {
+            icSetup.updateCircuitContext(currentUsername, currentCircuitName);
+        } else {
+            System.err.println("ERROR: icSetup is null when trying to update context!");
         }
     }
-
-    /**
-     * Remove a wire between two coordinates
-     * This method can be called by other components like RemoveConnection
-     */
-    public void removeWire(Coordinate srcCoord, Coordinate dstCoord) {
-        if (wireManager != null) {
-            wireManager.removeWire(srcCoord, dstCoord);
-        }
-    }
-
-    /**
-     * Remove all wires connected to a specific coordinate
-     * This method can be called when removing components
-     */
-    public void removeWiresConnectedTo(Coordinate coord) {
-        if (wireManager != null) {
-            wireManager.removeWiresConnectedTo(coord);
-        }
-    }
-
-    /**
-     * Check if a wire exists between two coordinates
-     */
-    public boolean wireExists(Coordinate srcCoord, Coordinate dstCoord) {
-        if (wireManager != null) {
-            return wireManager.wireExists(srcCoord, dstCoord);
-        }
-        return false;
-    }
-
-    /**
-     * Check if any wire is connected to a specific coordinate
-     */
-    public boolean hasWireConnectedTo(Coordinate coord) {
-        if (wireManager != null) {
-            return wireManager.hasWireConnectedTo(coord);
-        }
-        return false;
-    }
-
-    public void refreshWireVisuals() {
-        if (wireManager != null) {
-            // Delay the visual refresh to ensure UI is fully loaded
-            new Handler().postDelayed(() -> {
-                wireManager.refreshVisualWires();
-            }, 500);
-        }
-    }
-
 }

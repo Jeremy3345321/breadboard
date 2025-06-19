@@ -30,19 +30,17 @@ public class HomeActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
-        // Initialize components
+
         initializeComponents();
 
-        // Get current username from SharedPreferences or Intent
         getCurrentUsername();
 
-        // Load existing circuits for the user
         loadUserCircuits();
 
         newCircuit.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Create a new circuit in database and UI
+                // Create a new circuit
                 createNewCircuit();
             }
         });
@@ -52,7 +50,6 @@ public class HomeActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         // Reload circuits when returning to this activity
-        // This ensures the UI is updated if circuits were modified in MainActivity
         loadUserCircuits();
     }
 
@@ -63,27 +60,21 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     private void getCurrentUsername() {
-        // Use UserAuthentication to get current user
         UserAuthentication userAuth = UserAuthentication.getInstance(this);
         currentUsername = userAuth.getCurrentUsername();
 
-        // If no user is logged in through UserAuthentication, try to get from Intent as fallback
         if (currentUsername == null) {
             currentUsername = getIntent().getStringExtra("username");
 
-            // If found in Intent, update UserAuthentication
             if (currentUsername != null) {
                 userAuth.loginUser(currentUsername);
             }
         }
 
-        // If still null, handle as no user logged in
         if (currentUsername == null) {
             System.err.println("ERROR: No user is currently logged in!");
-            // You might want to redirect to login screen here
             Toast.makeText(this, "Please log in again", Toast.LENGTH_SHORT).show();
 
-            // Redirect to login activity
             Intent intent = new Intent(this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
@@ -91,14 +82,12 @@ public class HomeActivity extends AppCompatActivity {
             return;
         }
 
-        // Print session info for debugging
         userAuth.printSessionInfo();
         System.out.println("HomeActivity: Current username confirmed: " + currentUsername);
     }
 
     private void createNewCircuit() {
         try {
-            // Verify current user before creating circuit
             UserAuthentication userAuth = UserAuthentication.getInstance(this);
             String verifiedUsername = userAuth.getCurrentUsername();
 
@@ -108,24 +97,20 @@ public class HomeActivity extends AppCompatActivity {
                 return;
             }
 
-            // Update currentUsername to verified username
+            // Update currentUsername
             currentUsername = verifiedUsername;
 
-            // Generate a unique circuit name for this user
             String circuitName = circuitToDB.generateUniqueCircuitName(currentUsername);
 
-            // Insert circuit into database
             boolean dbResult = circuitToDB.insertCircuit(circuitName, currentUsername);
 
             if (dbResult) {
-                // Reload circuits to update the UI with the new circuit
                 loadUserCircuits();
 
-                // Navigate to MainActivity for circuit creation with verified context
                 Intent intent = new Intent(HomeActivity.this, MainActivity.class);
                 intent.putExtra("circuit_name", circuitName);
-                intent.putExtra("username", currentUsername); // Use verified username
-                intent.putExtra("circuit_id", circuitToDB.getCircuitId(circuitName, currentUsername)); // Add circuit ID if available
+                intent.putExtra("username", currentUsername);
+                intent.putExtra("circuit_id", circuitToDB.getCircuitId(circuitName, currentUsername));
 
                 // Add debug logging
                 System.out.println("HomeActivity: Starting MainActivity with context:");
@@ -172,15 +157,12 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Create a circuit item in the UI from database data
-     */
     private void createCircuitItemFromDatabase(CircuitData circuitData) {
         // Create the main container for the circuit item
         LinearLayout circuitItem = new LinearLayout(this);
         circuitItem.setOrientation(LinearLayout.VERTICAL);
 
-        // Set layout parameters with margins
+        // Set layout with margins
         LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -188,14 +170,14 @@ public class HomeActivity extends AppCompatActivity {
         itemParams.setMargins(0, 0, 0, 50); // Bottom margin between items
         circuitItem.setLayoutParams(itemParams);
 
-        // Create and configure the circuit name TextView
+        // Create and configure
         TextView circuitName = new TextView(this);
         circuitName.setText(circuitData.circuitName);
         circuitName.setTextSize(18);
         circuitName.setTextColor(Color.parseColor("#000000"));
         circuitName.setPadding(50, 70, 50, 37);
 
-        // Create the background drawable with border and fill
+        // Create the background drawable
         GradientDrawable background = new GradientDrawable();
         background.setShape(GradientDrawable.RECTANGLE);
         background.setColor(Color.parseColor("#FFFAF0")); // Light cream color
@@ -212,11 +194,9 @@ public class HomeActivity extends AppCompatActivity {
         );
         circuitName.setLayoutParams(textParams);
 
-        // Add click listener to open MainActivity with specific circuit data
         circuitItem.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Ensure we have the current authenticated user
                 UserAuthentication userAuth = UserAuthentication.getInstance(HomeActivity.this);
                 String verifiedUsername = userAuth.getCurrentUsername();
 
@@ -229,7 +209,7 @@ public class HomeActivity extends AppCompatActivity {
                 Intent intent = new Intent(HomeActivity.this, MainActivity.class);
                 intent.putExtra("circuit_name", circuitData.circuitName);
                 intent.putExtra("circuit_id", circuitData.id);
-                intent.putExtra("username", verifiedUsername); // Use verified username
+                intent.putExtra("username", verifiedUsername);
 
                 // Add debug logging
                 System.out.println("HomeActivity: Opening existing circuit with context:");
@@ -241,35 +221,28 @@ public class HomeActivity extends AppCompatActivity {
             }
         });
 
-        // Add long click listener for additional options (delete, rename, etc.)
         circuitItem.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
                 showCircuitOptions(circuitData);
-                return true; // Consume the long click event
+                return true;
             }
         });
 
-        // Add the TextView to the circuit item container
         circuitItem.addView(circuitName);
 
-        // Add the circuit item to the main container
         circuitContainer.addView(circuitItem);
     }
 
-    /**
-     * Show options for a circuit (delete, rename, etc.)
-     */
     private void showCircuitOptions(CircuitData circuitData) {
-        // For now, just show a simple delete confirmation
-        // You can expand this to show a dialog with multiple options
+        //show a simple delete confirmation
+
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
         builder.setTitle("Circuit Options")
                 .setMessage("What would you like to do with '" + circuitData.circuitName + "'?")
                 .setPositiveButton("Delete", (dialog, which) -> deleteCircuit(circuitData))
                 .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .setNeutralButton("Open", (dialog, which) -> {
-                    // Ensure we have the current authenticated user
                     UserAuthentication userAuth = UserAuthentication.getInstance(HomeActivity.this);
                     String verifiedUsername = userAuth.getCurrentUsername();
 
@@ -293,9 +266,6 @@ public class HomeActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Delete a circuit from database and update UI
-     */
     private void deleteCircuit(CircuitData circuitData) {
         android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(this);
         builder.setTitle("Delete Circuit")
@@ -313,26 +283,16 @@ public class HomeActivity extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Create a circuit item in the UI (generic version for backward compatibility)
-     * This method is kept for any legacy calls, but createCircuitItemFromDatabase should be used instead
-     */
     private void createCircuitItem(String circuitName) {
         // Create a temporary CircuitData object for display
         CircuitData tempCircuitData = new CircuitData(0, circuitName, currentUsername, "", "");
         createCircuitItemFromDatabase(tempCircuitData);
     }
 
-    /**
-     * Show a toast message to the user
-     */
     private void showToast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
-    /**
-     * Debug method to clear all circuits for current user (for testing)
-     */
     private void clearAllUserCircuits() {
         boolean success = circuitToDB.clearCircuitsForUser(currentUsername);
         if (success) {
@@ -343,9 +303,6 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * Debug method to show database info (for testing)
-     */
     private void debugDatabaseInfo() {
         int circuitCount = circuitToDB.getCircuitCountForUser(currentUsername);
         System.out.println("Current user has " + circuitCount + " circuits");

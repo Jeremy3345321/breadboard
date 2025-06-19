@@ -89,9 +89,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Update circuit's last modified timestamp
-     */
     public boolean updateCircuitModified(int circuitId) {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -118,9 +115,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Update circuit name
-     */
     public boolean updateCircuitName(int circuitId, String newName) {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -147,9 +141,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Delete a circuit from the database
-     */
     public boolean deleteCircuit(int circuitId) {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -175,9 +166,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Delete a circuit by name and username
-     */
     public boolean deleteCircuitByName(String circuitName, String username) {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -200,9 +188,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Check if a circuit name already exists for a specific user
-     */
     public boolean circuitNameExistsForUser(String circuitName, String username) {
         SQLiteDatabase db = null;
         Cursor cursor = null;
@@ -261,9 +246,6 @@ public class CircuitToDB {
         return circuitId;
     }
 
-    /**
-     * Get circuit data by ID
-     */
     public CircuitData getCircuitById(int circuitId) {
         SQLiteDatabase db = null;
         Cursor cursor = null;
@@ -297,10 +279,6 @@ public class CircuitToDB {
         
         return circuitData;
     }
-
-    /**
-     * Get all circuits for a specific user
-     */
     public List<CircuitData> getCircuitsForUser(String username) {
         List<CircuitData> circuitList = new ArrayList<>();
         SQLiteDatabase db = null;
@@ -339,9 +317,6 @@ public class CircuitToDB {
         return circuitList;
     }
 
-    /**
-     * Get all circuits from the database
-     */
     public List<CircuitData> getAllCircuits() {
         List<CircuitData> circuitList = new ArrayList<>();
         SQLiteDatabase db = null;
@@ -379,9 +354,6 @@ public class CircuitToDB {
         return circuitList;
     }
 
-    /**
-     * Get the count of circuits for a specific user
-     */
     public int getCircuitCountForUser(String username) {
         SQLiteDatabase db = null;
         Cursor cursor = null;
@@ -410,9 +382,6 @@ public class CircuitToDB {
         return count;
     }
 
-    /**
-     * Clear all circuits for a specific user
-     */
     public boolean clearCircuitsForUser(String username) {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -436,9 +405,6 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Clear all circuits from the database (useful for complete reset)
-     */
     public boolean clearAllCircuits() {
         SQLiteDatabase db = null;
         boolean success = false;
@@ -462,25 +428,15 @@ public class CircuitToDB {
         return success;
     }
 
-    /**
-     * Load circuits from database for a specific user
-     * Returns a list of CircuitData for display
-     */
     public List<CircuitData> loadCircuitsFromDatabase(String username) {
         return getCircuitsForUser(username);
     }
 
-    /**
-     * Get next circuit number for a user (for auto-naming)
-     */
     public int getNextCircuitNumber(String username) {
         int count = getCircuitCountForUser(username);
         return count + 1;
     }
 
-    /**
-     * Generate a unique circuit name for a user
-     */
     public String generateUniqueCircuitName(String username) {
         int circuitNumber = getNextCircuitNumber(username);
         String baseName = "Circuit " + circuitNumber;

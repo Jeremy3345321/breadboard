@@ -11,7 +11,7 @@ public class DBHelper extends SQLiteOpenHelper {
     public static final String DBNAME = "Breadboard.db";
 
     public DBHelper(Context context) {
-        super(context, "Breadboard.db", null, 8); // Increment to version 8 for ics table
+        super(context, "Breadboard.db", null, 10); // Version 10 for wires table
     }
 
     @Override
@@ -63,7 +63,33 @@ public class DBHelper extends SQLiteOpenHelper {
                 "last_modified TEXT, " +
                 "FOREIGN KEY (username) REFERENCES users(username))");
 
-        System.out.println("Database created with version 8 - added ics table");
+        // Create power_components table
+        MyDB.execSQL("create Table power_components(" +
+                "id INTEGER primary key AUTOINCREMENT, " +
+                "value INTEGER NOT NULL CHECK (value IN (1, -2)), " +
+                "username TEXT NOT NULL, " +
+                "circuit_name TEXT NOT NULL, " +
+                "section INTEGER NOT NULL, " +
+                "row_pos INTEGER NOT NULL, " +
+                "column_pos INTEGER NOT NULL, " +
+                "UNIQUE(username, circuit_name, section, row_pos, column_pos), " +
+                "FOREIGN KEY (username) REFERENCES users(username))");
+
+        // Create wires table
+        MyDB.execSQL("create Table wires(" +
+                "id INTEGER primary key AUTOINCREMENT, " +
+                "username TEXT NOT NULL, " +
+                "circuit_name TEXT NOT NULL, " +
+                "src_section INTEGER NOT NULL, " +
+                "src_row INTEGER NOT NULL, " +
+                "src_column INTEGER NOT NULL, " +
+                "dst_section INTEGER NOT NULL, " +
+                "dst_row INTEGER NOT NULL, " +
+                "dst_column INTEGER NOT NULL, " +
+                "UNIQUE(username, circuit_name, src_section, src_row, src_column, dst_section, dst_row, dst_column), " +
+                "FOREIGN KEY (username) REFERENCES users(username))");
+
+        System.out.println("Database created with version 10 - added wires table");
     }
 
     @Override
@@ -145,7 +171,84 @@ public class DBHelper extends SQLiteOpenHelper {
             }
         }
 
+        // Handle upgrade to version 9 (power_components table)
+        if (oldVersion < 9) {
+            try {
+                MyDB.execSQL("create Table IF NOT EXISTS power_components(" +
+                        "id INTEGER primary key AUTOINCREMENT, " +
+                        "value INTEGER NOT NULL CHECK (value IN (1, -2)), " + // 1 for VCC, -2 for GND
+                        "username TEXT NOT NULL, " +
+                        "circuit_name TEXT NOT NULL, " +
+                        "section INTEGER NOT NULL, " +
+                        "row_pos INTEGER NOT NULL, " +
+                        "column_pos INTEGER NOT NULL, " +
+                        "UNIQUE(username, circuit_name, section, row_pos, column_pos), " +
+                        "FOREIGN KEY (username) REFERENCES users(username))");
+
+                System.out.println("Added power_components table during upgrade to version 9");
+            } catch (Exception e) {
+                System.err.println("Error adding power_components table: " + e.getMessage());
+            }
+        }
+
+        // Handle upgrade to version 10 (wires table)
+        if (oldVersion < 10) {
+            try {
+                MyDB.execSQL("create Table IF NOT EXISTS wires(" +
+                        "id INTEGER primary key AUTOINCREMENT, " +
+                        "username TEXT NOT NULL, " +
+                        "circuit_name TEXT NOT NULL, " +
+                        "src_section INTEGER NOT NULL, " +
+                        "src_row INTEGER NOT NULL, " +
+                        "src_column INTEGER NOT NULL, " +
+                        "dst_section INTEGER NOT NULL, " +
+                        "dst_row INTEGER NOT NULL, " +
+                        "dst_column INTEGER NOT NULL, " +
+                        "UNIQUE(username, circuit_name, src_section, src_row, src_column, dst_section, dst_row, dst_column), " +
+                        "FOREIGN KEY (username) REFERENCES users(username))");
+
+                System.out.println("Added wires table during upgrade to version 10");
+            } catch (Exception e) {
+                System.err.println("Error adding wires table: " + e.getMessage());
+            }
+        }
+
         System.out.println("Database upgrade completed");
+    }
+
+    // User management methods
+    public Boolean insertData(String username, String password) {
+        SQLiteDatabase MyDB = this.getWritableDatabase();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put("username", username);
+        contentValues.put("password", password);
+        long result = MyDB.insert("users", null, contentValues);
+        MyDB.close();
+        if (result == -1) return false;
+        else return true;
+    }
+
+    // Alternative method name for compatibility with LoginActivity
+    public Boolean insertUserData(String username, String password) {
+        return insertData(username, password);
+    }
+
+    public Boolean checkusername(String username) {
+        SQLiteDatabase MyDB = this.getReadableDatabase();
+        Cursor cursor = MyDB.rawQuery("Select * from users where username = ?", new String[]{username});
+        boolean exists = cursor.getCount() > 0;
+        cursor.close();
+        MyDB.close();
+        return exists;
+    }
+
+    public Boolean checkusernamepassword(String username, String password) {
+        SQLiteDatabase MyDB = this.getReadableDatabase();
+        Cursor cursor = MyDB.rawQuery("Select * from users where username = ? and password = ?", new String[]{username, password});
+        boolean exists = cursor.getCount() > 0;
+        cursor.close();
+        MyDB.close();
+        return exists;
     }
 
     public Boolean updatePassword(String username, String password) {
@@ -170,12 +273,11 @@ public class DBHelper extends SQLiteOpenHelper {
         }
     }
 
-
-    // Method to manually check if tables exist (for debugging)
+    // Debug and utility methods
     public void checkTables() {
         SQLiteDatabase db = this.getReadableDatabase();
         Cursor cursor = db.rawQuery("SELECT name FROM sqlite_master WHERE type='table'", null);
-        
+
         System.out.println("=== Database Tables ===");
         if (cursor.moveToFirst()) {
             do {
@@ -184,41 +286,9 @@ public class DBHelper extends SQLiteOpenHelper {
             } while (cursor.moveToNext());
         }
         System.out.println("=====================");
-        
+
         cursor.close();
         db.close();
-    }
-
-    // Existing user methods remain unchanged
-    public Boolean insertData(String username, String password){
-        SQLiteDatabase MyDB = this.getWritableDatabase();
-        ContentValues contentValues = new ContentValues();
-        contentValues.put("username", username);
-        contentValues.put("password", password);
-        long result = MyDB.insert("users", null, contentValues);
-        MyDB.close();
-        if(result==-1) return false;
-        else
-            return true;
-    }
-
-    public Boolean checkusername(String username){
-        SQLiteDatabase MyDB = this.getReadableDatabase();
-        Cursor cursor = MyDB.rawQuery("Select * from users where username = ?", new String[] {username});
-        boolean exists = cursor.getCount() > 0;
-        cursor.close();
-        MyDB.close();
-        return exists;
-    }
-
-    public Boolean checkusernamepassword(String username,String password){
-        SQLiteDatabase MyDB = this.getReadableDatabase();
-        Cursor cursor = MyDB.rawQuery("Select * from users where username = ? and password = ?", new String[]{username,password});
-        boolean exists = cursor.getCount() > 0;
-        cursor.close();
-        MyDB.close();
-        return exists;
-
     }
 
     public void listAllTables() {
@@ -262,7 +332,7 @@ public class DBHelper extends SQLiteOpenHelper {
         }
     }
 
-    public void showTableStructure(String tableName) { // Debug method to show table structure
+    public void showTableStructure(String tableName) {
         SQLiteDatabase db = null;
         Cursor cursor = null;
 
@@ -310,7 +380,8 @@ public class DBHelper extends SQLiteOpenHelper {
             }
         }
     }
-    public void showTableData(String tableName) { // Show all data in tables
+
+    public void showTableData(String tableName) {
         SQLiteDatabase db = null;
         Cursor cursor = null;
 
@@ -388,7 +459,7 @@ public class DBHelper extends SQLiteOpenHelper {
         listAllTables();
 
         // Check specific tables (each method manages its own connection)
-        String[] expectedTables = {"users", "inputs", "outputs", "circuits", "ics"}; // Added "ics"
+        String[] expectedTables = {"users", "inputs", "outputs", "circuits", "ics", "power_components", "wires"};
         for (String table : expectedTables) {
             if (tableExists(table)) {
                 showTableStructure(table);
@@ -449,6 +520,8 @@ public class DBHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS outputs");
         db.execSQL("DROP TABLE IF EXISTS circuits");
         db.execSQL("DROP TABLE IF EXISTS ics");
+        db.execSQL("DROP TABLE IF EXISTS power_components");
+        db.execSQL("DROP TABLE IF EXISTS wires");
         db.execSQL("DROP TABLE IF EXISTS user_circuit");
 
         // Recreate tables

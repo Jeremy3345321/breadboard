@@ -71,6 +71,8 @@ public class ICToDB {
         long result = db.insert("ics", null, values);
         db.close();
 
+        System.out.println("Inserted " + icType + " at " + coord);
+
         return result != -1;
     }
 

@@ -20,6 +20,7 @@ public class AddConnection {
     private ICSetup icSetup;
     private InputManager inputManager;
     private OutputManager outputManager;
+    private ComponentManager componentManager;
     private List<Coordinate> vccPins;
     private List<Coordinate> gndPins;
 
@@ -41,12 +42,13 @@ public class AddConnection {
         this.icSetup = icSetup;
         this.inputManager = inputManager;
         this.outputManager = outputManager;
+        this.componentManager = componentManager;
         this.vccPins = vccPins;
         this.gndPins = gndPins;
     }
 
     public void showPinConfigDialog(Coordinate coord) {
-        String[] options = {"Add IC", "Add Input", "Add Output", "Add Vcc", "Add Ground", "Connect Pin"};
+        String[] options = {"Add IC", "Add Input", "Add Output", "Add Vcc", "Add Ground", "Add Connection"};
 
         AlertDialog.Builder builder = new AlertDialog.Builder(mainActivity);
         builder.setTitle("Pin Configuration")
@@ -57,10 +59,14 @@ public class AddConnection {
                         case 2: addOutput(coord); break;
                         case 3: addVcc(coord); break;
                         case 4: addGround(coord); break;
-                        case 5: connectPin(coord); break;
+                        case 5: addConnection(coord); break;
                     }
                 })
                 .show();
+    }
+
+    private void addConnection(Coordinate coord) {
+        mainActivity.getWireManager().showWireConnectionDialog(coord);
     }
 
     private void addIC(Coordinate coord) {
@@ -136,28 +142,35 @@ public class AddConnection {
     }
 
     private void addVcc(Coordinate coord) {
-        if (checkValue(coord, 1)) {
-            resizeSpecialPin(coord, R.drawable.breadboard_vcc);
-            vccPins.add(coord);
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 1);
+        // Use ComponentManager if available, otherwise fallback to original method
+        if (componentManager != null) {
+            componentManager.addComponent(coord, ComponentToDB.VCC);
         } else {
-            showToast("Error! Another Connection already Exists!");
+            // Fallback to original implementation
+            if (checkValue(coord, 1)) {
+                resizeSpecialPin(coord, R.drawable.breadboard_vcc);
+                vccPins.add(coord);
+                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, 1);
+            } else {
+                showToast("Error! Another Connection already Exists!");
+            }
         }
     }
 
     private void addGround(Coordinate coord) {
-        if (checkValue(coord, -2)) {
-            resizeSpecialPin(coord, R.drawable.breadboard_gnd);
-            gndPins.add(coord);
-            pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, -2);
+        // Use ComponentManager if available, otherwise fallback to original method
+        if (componentManager != null) {
+            componentManager.addComponent(coord, ComponentToDB.GND);
         } else {
-            showToast("Error! Another Connection already Exists!");
+            // Fallback to original implementation
+            if (checkValue(coord, -2)) {
+                resizeSpecialPin(coord, R.drawable.breadboard_gnd);
+                gndPins.add(coord);
+                pinAttributes[coord.s][coord.r][coord.c] = new Attribute(-2, -2);
+            } else {
+                showToast("Error! Another Connection already Exists!");
+            }
         }
-    }
-
-    private void connectPin(Coordinate coord) {
-        // TODO: Implementation for connecting pins with wires
-        showToast("Pin connection feature - implementation needed");
     }
 
     public void resizeSpecialPin(Coordinate coord, int drawableResource) {
